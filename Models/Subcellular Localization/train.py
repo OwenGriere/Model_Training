@@ -46,7 +46,7 @@ lasagne.random.set_rng(np.random.RandomState(seed=int(args.seed)))
 np.random.seed(seed=int(args.seed))
 
 # Load data
-print "Loading data...\n"
+print("Loading data...\n")
 test_data = np.load(args.testset)
 train_data = np.load(args.trainset)
 
@@ -91,84 +91,90 @@ for i in range(1,5):
 	eps = []
 	best_val_acc = 0
 
-	print "Start training\n"	
+	print("Start training\n")
 	for epoch in range(num_epochs):
-	    # Calculate epoch time
-	    start_time = time.time()
-	    
-	    # Full pass training set
-	    train_err = 0
-	    train_batches = 0
-	    confusion_train = ConfusionMatrix(n_class)
-	    
-	    # Generate minibatches and train on each one of them	
-	    for batch in iterate_minibatches(X_tr, y_tr, mask_tr, batch_size, shuffle=True):
-		inputs, targets, in_masks = batch
-		tr_err, predict = train_fn(inputs, targets, in_masks)
-		train_err += tr_err
-		train_batches += 1
-		preds = np.argmax(predict, axis=-1)
-		confusion_train.batch_add(targets, preds)
-	    
-	    train_loss = train_err / train_batches
-	    train_accuracy = confusion_train.accuracy()
-	    cf_train = confusion_train.ret_mat()	    
+		# Calculate epoch time
+		start_time = time.time()
 
-		
-	    # Full pass validation set
-	    val_err = 0
-	    val_batches = 0
-	    confusion_valid = ConfusionMatrix(n_class)
-	    
-	    # Generate minibatches and train on each one of them	
-	    for batch in iterate_minibatches(X_val, y_val, mask_val, batch_size):
-		inputs, targets, in_masks = batch
-		err, predict_val, alpha, context = val_fn(inputs, targets, in_masks)
-		val_err += err
-		val_batches += 1
-		preds = np.argmax(predict_val, axis=-1)
-		confusion_valid.batch_add(targets, preds)
-		
-	    val_loss = val_err / val_batches
-	    val_accuracy = confusion_valid.accuracy()
-	    cf_val = confusion_valid.ret_mat()
-            
-	    f_val_acc = val_accuracy
+		# Full pass training set
+		train_err = 0
+		train_batches = 0
+		confusion_train = ConfusionMatrix(n_class)
 
-	    # Full pass test set if validation accuracy is higher
-	    if f_val_acc >= best_val_acc:
-		
-	    	test_batches = 0
-		# Matrices to store all output information
-		test_alpha = np.array([], dtype=np.float32).reshape(0,seq_len)
-		test_context = np.array([], dtype=np.float32).reshape(0,n_hid*2)
-		test_pred = np.array([], dtype=np.float32).reshape(0,n_class)
-		
-		for batch in iterate_minibatches(X_test, y_test, mask_test, batch_size, shuffle=False, sort_len=False):
+		# Generate minibatches and train on each one of them
+		for batch in iterate_minibatches(X_tr, y_tr, mask_tr, batch_size, shuffle=True):
 			inputs, targets, in_masks = batch
-			err, net_out, alpha, context = val_fn(inputs, targets, in_masks)
-			
-			test_batches += 1	
-			last_alpha = alpha[:,-1:,:].reshape((batch_size, seq_len))
-			test_alpha = np.concatenate((test_alpha, last_alpha), axis=0)
-			test_context = np.concatenate((test_context, context), axis=0)
-			test_pred = np.concatenate((test_pred, net_out),axis=0)		
+			tr_err, predict = train_fn(inputs, targets, in_masks)
+			train_err += tr_err
+			train_batches += 1
+			preds = np.argmax(predict, axis=-1)
+			confusion_train.batch_add(targets, preds)
 
-		best_val_acc = f_val_acc
-	    
-	    eps += [epoch]
-	    
-	    # Then we print the results for this epoch:
-	    print("Epoch {} of {} took {:.3f}s".format(epoch + 1, num_epochs, time.time() - start_time))
-	    print confusion_valid
-	    print("  training loss:\t\t{:.6f}".format(train_loss))
-	    print("  validation loss:\t\t{:.6f}".format(val_loss))
-	    print("  training accuracy:\t\t{:.2f} %".format(train_accuracy * 100))
-	    print("  validation accuracy:\t\t{:.2f} %".format(val_accuracy * 100))
-	    print("  training Gorodkin:\t\t{:.2f}".format(gorodkin(cf_train)))
-	    print("  validation Gorodkin:\t\t{:.2f}".format(gorodkin(cf_val)))
-	    print("  training IC:\t\t{:.2f}".format(IC(cf_train)))
-	    print("  validation IC:\t\t{:.2f}".format(IC(cf_val)))
+		train_loss = train_err / train_batches
+		train_accuracy = confusion_train.accuracy()
+		cf_train = confusion_train.ret_mat()
+
+		# Full pass validation set
+		val_err = 0
+		val_batches = 0
+		confusion_valid = ConfusionMatrix(n_class)
+
+		# Generate minibatches and evaluate on each one of them
+		for batch in iterate_minibatches(X_val, y_val, mask_val, batch_size):
+			inputs, targets, in_masks = batch
+			err, predict_val, alpha, context = val_fn(inputs, targets, in_masks)
+			val_err += err
+			val_batches += 1
+			preds = np.argmax(predict_val, axis=-1)
+			confusion_valid.batch_add(targets, preds)
+
+		val_loss = val_err / val_batches
+		val_accuracy = confusion_valid.accuracy()
+		cf_val = confusion_valid.ret_mat()
+
+		f_val_acc = val_accuracy
+
+		# Full pass test set if validation accuracy is higher
+		if f_val_acc >= best_val_acc:
+
+			test_batches = 0
+			# Matrices to store all output information
+			test_alpha = np.array([], dtype=np.float32).reshape(0, seq_len)
+			test_context = np.array([], dtype=np.float32).reshape(0, n_hid * 2)
+			test_pred = np.array([], dtype=np.float32).reshape(0, n_class)
+
+			for batch in iterate_minibatches(X_test, y_test, mask_test,
+											batch_size, shuffle=False, sort_len=False):
+				inputs, targets, in_masks = batch
+				err, net_out, alpha, context = val_fn(inputs, targets, in_masks)
+
+				test_batches += 1
+
+				# taille réelle du minibatch (le dernier peut être plus petit)
+				current_bs = inputs.shape[0]
+
+				# On garde la même logique que ton code, mais avec current_bs
+				last_alpha = alpha[:, -1:, :].reshape((current_bs, seq_len))
+				test_alpha = np.concatenate((test_alpha, last_alpha), axis=0)
+				test_context = np.concatenate((test_context, context), axis=0)
+				test_pred = np.concatenate((test_pred, net_out), axis=0)
+
+			best_val_acc = f_val_acc
+
+		eps += [epoch]
+
+		# Then we print the results for this epoch:
+		print("Epoch {} of {} took {:.3f}s".format(epoch + 1, num_epochs, time.time() - start_time))
+		print(confusion_valid)
+		print("  training loss:\t\t{:.6f}".format(train_loss))
+		print("  validation loss:\t\t{:.6f}".format(val_loss))
+		print("  training accuracy:\t\t{:.2f} %".format(train_accuracy * 100))
+		print("  validation accuracy:\t\t{:.2f} %".format(val_accuracy * 100))
+		print("  training Gorodkin:\t\t{:.2f}".format(gorodkin(cf_train)))
+		print("  validation Gorodkin:\t\t{:.2f}".format(gorodkin(cf_val)))
+		print("  training IC:\t\t{:.2f}".format(IC(cf_train)))
+		print("  validation IC:\t\t{:.2f}".format(IC(cf_val)))
+
 
 	# Output matrices test set are summed at the end of each training
 	complete_test += test_pred[:X_test.shape[0]]
@@ -188,8 +194,8 @@ confusion_test.batch_add(y_test, loc_pred)
 test_accuracy = confusion_test.accuracy()
 cf_test = confusion_test.ret_mat()
 
-print "FINAL TEST RESULTS"
-print confusion_test
+print("FINAL TEST RESULTS")
+print(confusion_test)
 print("  test accuracy:\t\t{:.2f} %".format(test_accuracy * 100))
 print("  test Gorodkin:\t\t{:.2f}".format(gorodkin(cf_test)))
 print("  test IC:\t\t{:.2f}".format(IC(cf_test)))
