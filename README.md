@@ -2,10 +2,6 @@
 
 Various model of AI in python
 
-## Projet Perso
+## Subcellular Localization Projet
 
-Were I make some test
-
-## Projet EIDD
-
-A project of recognation of numbers with deeplearning
+A project to generate various models to recognate subcellular biomolecules and/or organelles
