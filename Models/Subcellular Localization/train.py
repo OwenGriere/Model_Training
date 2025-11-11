@@ -1,13 +1,16 @@
 import os
 import sys
+os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=float32"
+sys.path = [p for p in sys.path if ".local/lib/python3.8/site-packages" not in p]
 import numpy as np
+from tqdm import tqdm
 import theano
 import theano.tensor as T
 import time
 import lasagne
 import argparse
 from metrics_mc import *
-from model import neural_network
+from models import CNN
 from confusionmatrix import ConfusionMatrix
 from utils import iterate_minibatches
 
@@ -73,7 +76,7 @@ n_feat = np.shape(X_test)[2]
 for i in range(1,5):
 	# Network compilation
 	print("Compilation model {}\n".format(i))
-	train_fn, val_fn, network_out = neural_network(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt)
+	train_fn, val_fn, network_out = CNN(batch_size, n_hid, n_feat, n_class, lr, drop_per, drop_hid, n_filt)
 	
 	# Train and validation sets
 	train_index = np.where(partition != i)
@@ -92,8 +95,7 @@ for i in range(1,5):
 	best_val_acc = 0
 
 	print("Start training\n")
-	for epoch in range(num_epochs):
-		# Calculate epoch time
+	for epoch in tqdm(range(num_epochs), desc=f'Model Training n° {i} (EPOCH)'):
 		start_time = time.time()
 
 		# Full pass training set
