@@ -35,10 +35,6 @@ import theano
 import lasagne
 from models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
 
-
-# ---------------------------------------------------------------------
-# Fonctions utilitaires
-# ---------------------------------------------------------------------
 def save_params(l_out, fname):
     """
     Sauvegarde les paramètres du réseau dans le dossier 'params/'.
@@ -47,6 +43,7 @@ def save_params(l_out, fname):
     os.makedirs('params', exist_ok=True)
     params = lasagne.layers.get_all_param_values(l_out)
     np.savez(os.path.join('params', fname), *params)
+
 
 def plot_losses(train_losses, val_losses, model_name):
     """
@@ -67,6 +64,7 @@ def plot_losses(train_losses, val_losses, model_name):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
 
 def compute_confusion_and_plot(y_true, y_pred, classes=None, title='Matrice de confusion'):
     """
@@ -104,6 +102,7 @@ def compute_confusion_and_plot(y_true, y_pred, classes=None, title='Matrice de c
     plt.tight_layout()
     plt.show()
 
+
 def train_model(model_name,
                 train_data,
                 test_data=None,
@@ -115,38 +114,11 @@ def train_model(model_name,
                 drop_prob=0.5,
                 save_params_name=None):
     """
-    Entraîne et évalue un modèle choisi parmi FFN, CNN, CNN_LSTM ou CNN_LSTM_Att.
+    Entraîne et évalue un modèle choisi parmi FFN, CNN, CNN_LSTM ou CNN-LSTM-Attention.
+    Utilise une barre de progression tqdm pour afficher l'avancement des epochs.
 
-    Paramètres
-    ----------
-    model_name : str
-        Nom du modèle ('FFN', 'CNN', 'CNN_LSTM', 'CNN-LSTM-Attention').
-    train_data : tuple
-        Tuple (X_train, y_train, mask_train).
-    test_data : tuple ou None
-        Tuple (X_test, y_test, mask_test). Sert ici de jeu de validation/test
-        évalué à chaque epoch.
-    batch_size : int
-        Taille des mini-batchs.
-    num_epochs : int
-        Nombre d'epochs.
-    lr : float
-        Taux d'apprentissage.
-    n_hid : int
-        Nombre de neurones cachés.
-    n_filt : int
-        Nombre de filtres convolutifs (pour les modèles CNN / CNN_LSTM).
-    drop_prob : float
-        Taux de dropout.
-    save_params_name : str ou None
-        Nom du fichier .npz où sauvegarder les meilleurs paramètres.
-
-    Retour
-    ------
-    l_out : lasagne.layers.Layer
-        Couche de sortie du réseau.
-    history : dict
-        Dictionnaire contenant 'train_losses' et 'val_losses'.
+    train_data : tuple (X_train, y_train, mask_train)
+    test_data  : tuple (X_test, y_test, mask_test) ou None
     """
 
     # Dépaquetage des données d'entraînement
@@ -163,6 +135,9 @@ def train_model(model_name,
     n_class = int(np.max(y_train) + 1)
 
     tqdm.write(f"Train shape: {X_train.shape}, n_class: {n_class}")
+
+    # Indique si le modèle utilise un masque (LSTM)
+    uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
 
     # Sélection du modèle à partir du nom choisi
     if model_name == 'FFN':
@@ -198,7 +173,7 @@ def train_model(model_name,
             perm = np.random.permutation(n_samples)
             X_train_sh = X_train[perm]
             y_train_sh = y_train[perm]
-            mask_train_sh = mask_train[perm] if mask_train is not None else None
+            mask_train_sh = mask_train[perm] if (mask_train is not None and uses_mask) else None
 
             epoch_train_losses = []
 
@@ -209,7 +184,7 @@ def train_model(model_name,
                 xb = X_train_sh[start:end]
                 yb = y_train_sh[start:end]
 
-                if mask_train_sh is not None:
+                if uses_mask and mask_train_sh is not None:
                     mb = mask_train_sh[start:end]
                     res = train_fn(
                         xb.astype('float32'),
@@ -230,7 +205,7 @@ def train_model(model_name,
 
             # Évaluation sur le jeu de test si disponible
             if X_test is not None:
-                if mask_test is not None:
+                if uses_mask and mask_test is not None:
                     out = val_fn(
                         X_test.astype('float32'),
                         y_test.astype('int32'),
@@ -285,6 +260,7 @@ def train_model(model_name,
     }
     return l_out, history
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Lancer l'entraînement d'un modèle du projet Subcellular Localization."
@@ -317,10 +293,9 @@ def main():
     X_train = train_npz['X_train']
     y_train = train_npz['y_train']
     mask_train = train_npz['mask_train']
-
     train_data = (X_train, y_train, mask_train)
 
-    # Chargement des données de test
+    # Chargement des données de test (facultatif)
     test_data = None
     if args.testset is not None:
         test_npz = np.load(args.testset)
@@ -351,6 +326,7 @@ def main():
         plot_losses(history['train_losses'], history['val_losses'], args.model)
 
     print(f"Entraînement terminé. Paramètres sauvegardés dans 'params/{params_fname}'.")
+
 
 if __name__ == '__main__':
     main()
