@@ -1,25 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-run_models.py
--------------------------------------------------------
-Script unifié pour entraîner et évaluer les modèles
-du projet "Subcellular Localization".
-
-Modèles pris en charge :
- - FFN
- - CNN
- - CNN_LSTM
- - CNN_LSTM_Att (avec module d’attention)
-
-Ce script réutilise les fonctions de construction
-de réseaux définies dans models.py (Theano + Lasagne).
--------------------------------------------------------
-Usage :
-    python run_models.py --model CNN_LSTM_Att --epochs 30 --batch_size 32
--------------------------------------------------------
-"""
-
 import os
 import sys
 os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=float32"
@@ -44,7 +22,6 @@ def save_params(l_out, fname):
     params = lasagne.layers.get_all_param_values(l_out)
     np.savez(os.path.join('params', fname), *params)
 
-
 def plot_losses(train_losses, val_losses, model_name):
     """
     Trace les courbes de perte d'entraînement et de test/validation en fonction des epochs.
@@ -64,7 +41,6 @@ def plot_losses(train_losses, val_losses, model_name):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
 def compute_confusion_and_plot(y_true, y_pred, classes=None, title='Matrice de confusion'):
     """
@@ -101,7 +77,6 @@ def compute_confusion_and_plot(y_true, y_pred, classes=None, title='Matrice de c
     plt.xlabel('Label prédit')
     plt.tight_layout()
     plt.show()
-
 
 def train_model(model_name,
                 train_data,
@@ -260,7 +235,6 @@ def train_model(model_name,
     }
     return l_out, history
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="Lancer l'entraînement d'un modèle du projet Subcellular Localization."
@@ -288,14 +262,13 @@ def main():
     parser.add_argument('--no_plot', action='store_true', help='Ne pas afficher les courbes de perte.')
     args = parser.parse_args()
 
-    # Chargement des données d'entraînement
+    # === Chargement des données d'entraînement === #
     train_npz = np.load(args.trainset)
     X_train = train_npz['X_train']
     y_train = train_npz['y_train']
     mask_train = train_npz['mask_train']
     train_data = (X_train, y_train, mask_train)
 
-    # Chargement des données de test (facultatif)
     test_data = None
     if args.testset is not None:
         test_npz = np.load(args.testset)
@@ -307,7 +280,7 @@ def main():
     model_label = args.model.replace('-', '_')
     params_fname = f"{model_label}_params.npz"
 
-    # Entraînement du modèle choisi
+    # === Entraînement du modèle choisi === #
     l_out, history = train_model(
         model_name=args.model,
         train_data=train_data,
@@ -321,12 +294,11 @@ def main():
         save_params_name=params_fname
     )
 
-    # Tracé des pertes
+    # === Tracé des pertes === #
     if not args.no_plot:
         plot_losses(history['train_losses'], history['val_losses'], args.model)
 
     print(f"Entraînement terminé. Paramètres sauvegardés dans 'params/{params_fname}'.")
-
 
 if __name__ == '__main__':
     main()
