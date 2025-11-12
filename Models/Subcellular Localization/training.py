@@ -106,8 +106,10 @@ def train_model(model_name,
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
+    n_class_test = int(np.max(y_test) + 1)
 
-    tqdm.write(f"Train shape: {X_train.shape}, n_class: {n_class}")
+    tqdm.write(f"[INFO] Train shape: {X_train.shape}, n_class: {n_class}")
+    tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class_test}")
 
     # Indique si le modèle utilise un masque (LSTM)
     uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
