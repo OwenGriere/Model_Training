@@ -7,8 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import itertools
-
-# Imports du dépôt (Theano / Lasagne)
 import theano
 import lasagne
 from models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
