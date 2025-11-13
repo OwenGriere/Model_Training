@@ -8,73 +8,252 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import itertools
 import theano
+import theano.tensor as T
 import lasagne
 from models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
+from confusionmatrix import ConfusionMatrix
+from utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer
+from metrics_mc import gorodkin, IC
 
-def save_params(l_out, fname):
-    """
-    Sauvegarde les paramètres du réseau dans le dossier 'params/'.
-    Les paramètres sont récupérés depuis la couche de sortie l_out.
-    """
-    os.makedirs('params', exist_ok=True)
-    params = lasagne.layers.get_all_param_values(l_out)
-    np.savez(os.path.join('params', fname), *params)
+##################################################### Helper Function #####################################################
 
-def plot_losses(train_losses, val_losses, model_name):
+def build_model_from_name(model_name,
+                          X_train, y_train,
+                          batch_size,
+                          n_hid,
+                          n_filt,
+                          lr,
+                          drop_prob):
     """
-    Trace les courbes de perte d'entraînement et de test/validation en fonction des epochs.
-    Le vecteur val_losses peut éventuellement être vide si aucun ensemble de test
-    n'est utilisé pendant l'entraînement.
+    Wrapper pour choisir la bonne fonction de création de réseau
+    en fonction du nom du modèle.
+    Retourne (train_fn, val_fn, l_out).
     """
-    plt.figure(figsize=(7, 5))
-    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train')
+    if model_name == 'FFN':
+        return build_FFN_network(
+            X_train, y_train,
+            batch_size=batch_size,
+            n_hid=n_hid,
+            lr=lr,
+            drop_prob=drop_prob
+        )
 
-    if len(val_losses) > 0:
-        plt.plot(range(1, len(val_losses) + 1), val_losses, label='Test')
+    elif model_name == 'CNN':
+        return build_CNN_network(
+            X_train, y_train,
+            batch_size=batch_size,
+            n_hid=n_hid,
+            n_filt=n_filt,
+            lr=lr,
+            drop_prob=drop_prob
+        )
 
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title(f'Courbes de perte - {model_name}')
-    plt.legend()
+    elif model_name == 'CNN_LSTM':
+        return build_CNN_LSTM_network(
+            X_train, y_train,
+            batch_size=batch_size,
+            n_hid=n_hid,
+            n_filt=n_filt,
+            lr=lr,
+            drop_prob=drop_prob
+        )
+
+    elif model_name == 'CNN-LSTM-Attention':
+        return build_CNN_LSTM_Att_network(
+            X_train, y_train,
+            batch_size=batch_size,
+            n_hid=n_hid,
+            n_filt=n_filt,
+            lr=lr,
+            drop_prob=drop_prob
+        )
+
+    else:
+        raise ValueError(f"Modèle inconnu : {model_name}")
+
+##################################################### Build different Network #####################################################
+
+def build_FFN_network(X_train, y_train,
+                      batch_size=128,
+                      n_hid=30,
+                      lr=0.0025,
+                      drop_prob=0.5):
+    """
+    Construit le réseau FFN comme dans le notebook FFN.ipynb.
+    Retourne (train_fn, val_fn, l_out).
+    """
+    # On récupère les dimensions directement depuis les données
+    seq_len = X_train.shape[1]
+    n_feat = X_train.shape[2]
+    n_class = int(np.max(y_train) + 1)
+
+    # Appel à la fonction FFN définie dans models.py
+    train_fn, val_fn, l_out = FFN(
+        batch_size=batch_size,
+        seq_len=seq_len,
+        n_hid=n_hid,
+        n_feat=n_feat,
+        n_class=n_class,
+        lr=lr,
+        drop_prob=drop_prob
+    )
+
+    return train_fn, val_fn, l_out
+
+def build_CNN_network(X_train, y_train,
+                      batch_size=128,
+                      n_hid=30,
+                      n_filt=10,
+                      lr=0.005,
+                      drop_prob=0.5):
+    """
+    Construit le réseau CNN comme dans le notebook CNN.ipynb.
+    Retourne (train_fn, val_fn, l_out).
+    """
+    seq_len = X_train.shape[1]
+    n_feat = X_train.shape[2]
+    n_class = int(np.max(y_train) + 1)
+
+    train_fn, val_fn, l_out = CNN(
+        batch_size=batch_size,
+        seq_len=seq_len,
+        n_hid=n_hid,
+        n_feat=n_feat,
+        n_class=n_class,
+        n_filt=n_filt,
+        lr=lr,
+        drop_prob=drop_prob
+    )
+
+    return train_fn, val_fn, l_out
+
+def build_CNN_LSTM_network(X_train, y_train,
+                           batch_size=128,
+                           n_hid=15,
+                           n_filt=10,
+                           lr=0.0025,
+                           drop_prob=0.5):
+    """
+    Construit le réseau CNN-LSTM comme dans le notebook CNN-LSTM.ipynb.
+    Retourne (train_fn, val_fn, l_out).
+    Ce modèle utilise un masque à l'entraînement et à la validation.
+    """
+    seq_len = X_train.shape[1]
+    n_feat = X_train.shape[2]
+    n_class = int(np.max(y_train) + 1)
+
+    train_fn, val_fn, l_out = CNN_LSTM(
+        batch_size=batch_size,
+        seq_len=seq_len,
+        n_hid=n_hid,
+        n_feat=n_feat,
+        n_class=n_class,
+        n_filt=n_filt,
+        lr=lr,
+        drop_prob=drop_prob
+    )
+
+    return train_fn, val_fn, l_out
+
+def build_CNN_LSTM_Att_network(X_train, y_train,
+                               batch_size=128,
+                               n_hid=15,
+                               n_filt=10,
+                               lr=0.0025,
+                               drop_prob=0.5):
+    """
+    Construit le réseau CNN-LSTM-Attention comme dans le notebook
+    CNN-LSTM-Attention.ipynb.
+    Retourne (train_fn, val_fn, l_out).
+    Ce modèle utilise un masque et la fonction de validation renvoie
+    également les poids d'attention.
+    """
+    seq_len = X_train.shape[1]
+    n_feat = X_train.shape[2]
+    n_class = int(np.max(y_train) + 1)
+
+    train_fn, val_fn, l_out = CNN_LSTM_Att(
+        batch_size=batch_size,
+        seq_len=seq_len,
+        n_hid=n_hid,
+        n_feat=n_feat,
+        n_class=n_class,
+        n_filt=n_filt,
+        lr=lr,
+        drop_prob=drop_prob
+    )
+
+    return train_fn, val_fn, l_out
+
+##################################################### PLotting #####################################################
+
+def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=None, model_name="Model"):
+    """
+    Trace les courbes de perte et éventuellement d'accuracy,
+    dans le style utilisé dans les notebooks.
+    """
+
+    plt.figure(figsize=(10, 5))
+
+    # === Courbe de perte === #
+    plt.subplot(1, 2, 1)
+    plt.plot(train_losses, label='Train loss')
+    if val_losses:
+        plt.plot(val_losses, label='Test loss')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title(f"Courbes de pertes - {model_name}")
     plt.grid(True)
+    plt.legend()
+
+    # === Courbe d'accuracy === #
+    if train_accs is not None and val_accs is not None:
+        plt.subplot(1, 2, 2)
+        plt.plot(train_accs, label='Train acc')
+        plt.plot(val_accs, label='Test acc')
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.title(f"Accuracy - {model_name}")
+        plt.grid(True)
+        plt.legend()
+
     plt.tight_layout()
     plt.show()
 
-def compute_confusion_and_plot(y_true, y_pred, classes=None, title='Matrice de confusion'):
+def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"):
     """
-    Calcule l’accuracy globale et affiche une matrice de confusion simple
-    entre les labels réels y_true et les labels prédits y_pred.
+    Reproduit le style d'affichage des notebooks pour la matrice de confusion.
+    cf_matrix : matrice numpy NxN retournée par ConfusionMatrix.ret_mat()
     """
-    from sklearn.metrics import confusion_matrix, accuracy_score
 
-    cm = confusion_matrix(y_true, y_pred)
-    acc = accuracy_score(y_true, y_pred)
-    print(f"Accuracy: {acc:.4f}")
+    n_class = cf_matrix.shape[0]
+
+    if classes is None:
+        classes = [str(i) for i in range(n_class)]
 
     plt.figure(figsize=(8, 6))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.imshow(cf_matrix, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title(title)
     plt.colorbar()
 
-    if classes is None:
-        classes = [str(i) for i in range(cm.shape[0])]
-
-    tick_marks = np.arange(len(classes))
+    tick_marks = np.arange(n_class)
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
 
-    thresh = cm.max() / 2.0
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(
-            j, i, cm[i, j],
-            horizontalalignment="center",
-            color="white" if cm[i, j] > thresh else "black"
-        )
+    thresh = cf_matrix.max() / 2
 
-    plt.ylabel('Label réel')
-    plt.xlabel('Label prédit')
+    for i in range(n_class):
+        for j in range(n_class):
+            plt.text(j, i, cf_matrix[i, j],
+                     horizontalalignment="center",
+                     color="white" if cf_matrix[i, j] > thresh else "black")
+
+    plt.ylabel("Label réel")
+    plt.xlabel("Label prédit")
     plt.tight_layout()
     plt.show()
+
+##################################################### Model Training #####################################################
 
 def train_model(model_name,
                 train_data,
@@ -85,145 +264,153 @@ def train_model(model_name,
                 n_hid=128,
                 n_filt=64,
                 drop_prob=0.5,
-                save_params_name=None):
-    """
-    Entraîne et évalue un modèle choisi parmi FFN, CNN, CNN_LSTM ou CNN-LSTM-Attention.
-    Utilise une barre de progression tqdm pour afficher l'avancement des epochs.
+                save_params_name=None,
+                verbose=False):
 
-    train_data : tuple (X_train, y_train, mask_train)
-    test_data  : tuple (X_test, y_test, mask_test) ou None
-    """
-
-    # Dépaquetage des données d'entraînement
+    # Dépaquetage des données
     X_train, y_train, mask_train = train_data
-
-    # Dépaquetage des données de test (si fournies)
     if test_data is not None:
         X_test, y_test, mask_test = test_data
     else:
-        X_test, y_test, mask_test = None, None, None
+        X_test = y_test = mask_test = None
 
+    # Infos sur les shapes et le nombre de classes
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
-    n_class_test = int(np.max(y_test) + 1)
 
     tqdm.write(f"[INFO] Train shape: {X_train.shape}, n_class: {n_class}")
-    tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class_test}")
+    if X_test is not None:
+        tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
 
-    # Indique si le modèle utilise un masque (LSTM)
+    # Les modèles LSTM consomment un masque
     uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
 
-    # Sélection du modèle à partir du nom choisi
-    if model_name == 'FFN':
-        model_fn = FFN
-        model_args = (batch_size, seq_len, n_hid, n_feat, n_class, lr, drop_prob)
-    elif model_name == 'CNN':
-        model_fn = CNN
-        model_args = (batch_size, seq_len, n_hid, n_feat, n_class, n_filt, lr, drop_prob)
-    elif model_name == 'CNN_LSTM':
-        model_fn = CNN_LSTM
-        model_args = (batch_size, seq_len, n_hid, n_feat, n_class, n_filt, lr, drop_prob)
-    elif model_name == 'CNN-LSTM-Attention':
-        model_fn = CNN_LSTM_Att
-        model_args = (batch_size, seq_len, n_hid, n_feat, n_class, n_filt, lr, drop_prob)
-    else:
-        raise ValueError(f"Modèle inconnu : {model_name}")
-
-    # Construction du modèle choisi
-    train_fn, val_fn, l_out = model_fn(*model_args)
+    
+    train_fn, val_fn, l_out = build_model_from_name(
+        model_name=model_name,
+        X_train=X_train,
+        y_train=y_train,
+        batch_size=batch_size,
+        n_hid=n_hid,
+        n_filt=n_filt,
+        lr=lr,
+        drop_prob=drop_prob
+    )
+    tqdm.write(f'[INFO] {model_name} model build with success\n')
 
     train_losses = []
     val_losses = []
     best_val_loss = np.inf
     best_params = None
 
-    n_samples = X_train.shape[0]
-    nbatches = max(1, n_samples // batch_size)
-
-    # Boucle d'entraînement principale
-    with tqdm(total=num_epochs, desc=f"Training {model_name}", ncols=90) as pbar:
+    with tqdm(total=num_epochs, desc=f"[TRAINING] {model_name} training phase", ncols=90) as pbar:
         for epoch in range(1, num_epochs + 1):
-            # Mélange des données d'entraînement
-            perm = np.random.permutation(n_samples)
-            X_train_sh = X_train[perm]
-            y_train_sh = y_train[perm]
-            mask_train_sh = mask_train[perm] if (mask_train is not None and uses_mask) else None
+            # ============================
+            #      PHASE TRAINING
+            # ============================
+            train_err = 0.0
+            train_batches = 0
+            confusion_train = ConfusionMatrix(n_class)
 
-            epoch_train_losses = []
+            for inputs, targets, in_masks in iterate_minibatches(
+                X_train, y_train, mask_train,
+                batchsize=batch_size,
+                shuffle=True,
+                sort_len=uses_mask):
 
-            # Parcours des mini-batchs
-            for b in range(nbatches):
-                start = b * batch_size
-                end = (b + 1) * batch_size
-                xb = X_train_sh[start:end]
-                yb = y_train_sh[start:end]
+                inputs = inputs.astype('float32')
+                targets = targets.astype('int32')
 
-                if uses_mask and mask_train_sh is not None:
-                    mb = mask_train_sh[start:end]
-                    res = train_fn(
-                        xb.astype('float32'),
-                        yb.astype('int32'),
-                        mb.astype('float32')
-                    )
+                if uses_mask and in_masks is not None:
+                    in_masks = in_masks.astype('float32')
+                    loss_batch, preds = train_fn(inputs, targets, in_masks)
                 else:
-                    res = train_fn(
-                        xb.astype('float32'),
-                        yb.astype('int32')
-                    )
+                    loss_batch, preds = train_fn(inputs, targets)
 
-                loss = res[0]
-                epoch_train_losses.append(float(loss))
+                train_err += float(loss_batch)
+                train_batches += 1
+                pred_labels = np.argmax(preds, axis=-1)
+                confusion_train.batch_add(targets, pred_labels)
 
-            train_loss = float(np.mean(epoch_train_losses))
+            train_loss = train_err / max(1, train_batches)
             train_losses.append(train_loss)
+            train_acc = confusion_train.accuracy()
+            cf_train = confusion_train.ret_mat()
 
-            # Évaluation sur le jeu de test si disponible
+            # ============================
+            #   PHASE TEST / VALIDATION
+            # ============================
             if X_test is not None:
-                if uses_mask and mask_test is not None:
-                    out = val_fn(
-                        X_test.astype('float32'),
-                        y_test.astype('int32'),
-                        mask_test.astype('float32')
-                    )
-                else:
-                    out = val_fn(
-                        X_test.astype('float32'),
-                        y_test.astype('int32')
-                    )
+                val_err = 0.0
+                val_batches = 0
+                confusion_valid = ConfusionMatrix(n_class)
 
-                # out peut être (loss, preds) ou (loss, preds, alphas)
-                val_loss = float(out[0])
+                for inputs, targets, in_masks in iterate_minibatches(
+                    X_test, y_test, mask_test,
+                    batchsize=batch_size,
+                    shuffle=False,
+                    sort_len=False):
+                    inputs = inputs.astype('float32')
+                    targets = targets.astype('int32')
+
+                    if uses_mask and in_masks is not None:
+                        in_masks = in_masks.astype('float32')
+                        out = val_fn(inputs, targets, in_masks)
+                    else:
+                        out = val_fn(inputs, targets)
+
+                    # CNN_LSTM_Att peut renvoyer (loss, preds, alphas)
+                    val_loss_batch = float(out[0])
+                    preds = out[1]
+                    val_err += val_loss_batch
+                    val_batches += 1
+                    pred_labels = np.argmax(preds, axis=-1)
+                    confusion_valid.batch_add(targets, pred_labels)
+
+                val_loss = val_err / max(1, val_batches)
                 val_losses.append(val_loss)
+                val_acc = confusion_valid.accuracy()
+                cf_val = confusion_valid.ret_mat()
+                if verbose:
+                    tqdm.write(
+                        f"Epoch {epoch:02d}/{num_epochs} | "
+                        f"train_loss {train_loss:.6f} | test_loss {val_loss:.6f} | "
+                        f"train_acc {train_acc*100:.2f}% | test_acc {val_acc*100:.2f}%"
+                    )
 
-                tqdm.write(
-                    f"Epoch {epoch:02d}/{num_epochs} | "
-                    f"train_loss {train_loss:.6f} | "
-                    f"test_loss {val_loss:.6f}"
-                )
-
-                # Mise à jour du meilleur modèle
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_params = lasagne.layers.get_all_param_values(l_out)
                     if save_params_name is not None:
                         os.makedirs('params', exist_ok=True)
                         np.savez(os.path.join('params', save_params_name), *best_params)
+
+                if verbose:
+                    tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
+                    tqdm.write("  validation Gorodkin:\t{:.2f}".format(gorodkin(cf_val)))
+                    tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
+                    tqdm.write("  validation IC:\t{:.2f}".format(IC(cf_val)))
+
             else:
-                tqdm.write(
-                    f"Epoch {epoch:02d}/{num_epochs} | "
-                    f"train_loss {train_loss:.6f}"
-                )
+                if verbose:
+                    tqdm.write(
+                        f"Epoch {epoch:02d}/{num_epochs} | "
+                        f"train_loss {train_loss:.6f} | train_acc {train_acc*100:.2f}%"
+                    )
 
             pbar.update(1)
 
-    # Sauvegarde finale des paramètres
+    # ============================
+    #   SAUVEGARDE FINALE
+    # ============================
     if save_params_name is None:
         save_params_name = f"{model_name}_params.npz"
 
     if best_params is not None:
         np.savez(os.path.join('params', save_params_name), *best_params)
     else:
+        # Si pas de test set ou pas d'amélioration, on sauve l'état final
         np.savez(
             os.path.join('params', save_params_name),
             *lasagne.layers.get_all_param_values(l_out)
@@ -235,31 +422,22 @@ def train_model(model_name,
     }
     return l_out, history
 
+##################################################### Main #####################################################
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Lancer l'entraînement d'un modèle du projet Subcellular Localization."
-    )
-    parser.add_argument(
-        '--model', type=str,
-        choices=['FFN', 'CNN', 'CNN_LSTM', 'CNN-LSTM-Attention'],
-        default='CNN',
-        help='Nom du modèle à entraîner.'
-    )
-    parser.add_argument(
-        '-i', '--trainset',
-        help="Fichier .npz contenant les données d'entraînement (X_train, y_train, mask_train)."
-    )
-    parser.add_argument(
-        '-t', '--testset',
-        help="Fichier .npz contenant les données de test (X_test, y_test, mask_test) pour l'évaluation."
-    )
-    parser.add_argument('--epochs', type=int, default=20, help='Nombre d’epochs.')
-    parser.add_argument('--batch_size', type=int, default=32, help='Taille de mini-batch.')
-    parser.add_argument('--lr', type=float, default=0.001, help='Taux d’apprentissage.')
-    parser.add_argument('--n_hid', type=int, default=128, help='Nombre de neurones cachés.')
-    parser.add_argument('--n_filt', type=int, default=64, help='Nombre de filtres convolutifs.')
-    parser.add_argument('--drop', type=float, default=0.5, help='Taux de dropout.')
-    parser.add_argument('--no_plot', action='store_true', help='Ne pas afficher les courbes de perte.')
+    parser = argparse.ArgumentParser(description="Lancer l'entraînement d'un modèle du projet Subcellular Localization")
+    
+    parser.add_argument('--model', type=str,choices=['FFN', 'CNN', 'CNN_LSTM', 'CNN-LSTM-Attention'],default='CNN',help='Nom du modèle à entraîner')
+    parser.add_argument('-i', '--trainset',help="Fichier .npz contenant les données d'entraînement (X_train, y_train, mask_train)")
+    parser.add_argument('-t', '--testset', help="Fichier .npz contenant les données de test (X_test, y_test, mask_test) pour l'évaluation")
+    parser.add_argument('--epochs', type=int, default=20, help='Nombre d’epochs')
+    parser.add_argument('--batch_size', type=int, default=32, help='Taille de mini-batch')
+    parser.add_argument('--lr', type=float, default=0.001, help='Taux d’apprentissage')
+    parser.add_argument('--n_hid', type=int, default=128, help='Nombre de neurones cachés')
+    parser.add_argument('--n_filt', type=int, default=64, help='Nombre de filtres convolutifs')
+    parser.add_argument('--drop', type=float, default=0.5, help='Taux de dropout')
+    parser.add_argument('--no_plot', action='store_true', help='Ne pas afficher les courbes de perte')
+    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
     args = parser.parse_args()
 
     # === Chargement des données d'entraînement === #
@@ -272,9 +450,9 @@ def main():
     test_data = None
     if args.testset is not None:
         test_npz = np.load(args.testset)
-        X_test = test_npz['X_test']
-        y_test = test_npz['y_test']
-        mask_test = test_npz['mask_test']
+        X_test = test_npz['X_val']
+        y_test = test_npz['y_val']
+        mask_test = test_npz['mask_val']
         test_data = (X_test, y_test, mask_test)
 
     model_label = args.model.replace('-', '_')
@@ -291,14 +469,14 @@ def main():
         n_hid=args.n_hid,
         n_filt=args.n_filt,
         drop_prob=args.drop,
-        save_params_name=params_fname
-    )
+        save_params_name=params_fname,
+        verbose=args.verbose)
 
-    # === Tracé des pertes === #
+    tqdm.write(f"[INFO] Training finished\n")
+
     if not args.no_plot:
-        plot_losses(history['train_losses'], history['val_losses'], args.model)
-
-    print(f"Entraînement terminé. Paramètres sauvegardés dans 'params/{params_fname}'.")
+        os.makedirs("Figures", exist_ok=True)
+        tqdm.write(f"[INFO] Plot saved in Figures/\n")
 
 if __name__ == '__main__':
     main()
