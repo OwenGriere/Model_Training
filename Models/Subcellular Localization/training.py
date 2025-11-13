@@ -10,12 +10,19 @@ import itertools
 import theano
 import theano.tensor as T
 import lasagne
+import pandas as pd
 from models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
 from confusionmatrix import ConfusionMatrix
 from utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer
 from metrics_mc import gorodkin, IC
 
 ##################################################### Helper Function #####################################################
+def import_config():
+    return 0
+
+def save_params():
+    pd.read_parquet("./params/parameter_file")
+    return 0
 
 def build_model_from_name(model_name,
                           X_train, y_train,
@@ -218,9 +225,12 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
         plt.legend()
 
     plt.tight_layout()
-    plt.show()
+    loss_path = f"Figures/{model_name}_loss_and_accuracy.png"
+    plt.savefig(loss_path)
+    tqdm.write(f"[INFO] Taining curves saved: {loss_path}")
+    plt.close()
 
-def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"):
+def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model"):
     """
     Reproduit le style d'affichage des notebooks pour la matrice de confusion.
     cf_matrix : matrice numpy NxN retournée par ConfusionMatrix.ret_mat()
@@ -251,7 +261,10 @@ def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"
     plt.ylabel("Label réel")
     plt.xlabel("Label prédit")
     plt.tight_layout()
-    plt.show()
+    cf_path = f"Figures/{model_name}_confusion.png"
+    plt.savefig(cf_path)
+    plt.close()
+    tqdm.write(f"[INFO] Confusion matrix saved: {cf_path}")
 
 ##################################################### Model Training #####################################################
 
@@ -483,7 +496,6 @@ def main():
         plt.ioff()
 
         ### Training curve ###
-        fig1 = plt.figure(figsize=(10, 5))
         plot_training_curves(
             train_losses=history['train_losses'],
             val_losses=history['val_losses'],
@@ -491,25 +503,15 @@ def main():
             val_accs=history.get('val_accs', None),
             model_name=args.model
         )
-        loss_path = f"Figures/{model_label}_loss_and_accuracy.png"
-        fig1.savefig(loss_path)
-        plt.close(fig1)
-        tqdm.write(f"[INFO] Taining curves saved: {loss_path}")
-
+        
         ### Confusion matrix ###
         cf_val = history['cf_val']
-        fig2 = plt.figure(figsize=(8, 6))
         plot_confusion_matrix_(
                 cf_matrix=cf_val,
                 classes=[str(i) for i in range(cf_val.shape[0])],
-                title=f"Matrice de confusion - {args.model}"
+                title=f"Matrice de confusion - {args.model}",
+                model_name=args.model
         )
-        cf_path = f"Figures/{model_label}_confusion.png"
-        fig2.savefig(cf_path)
-        plt.close(fig2)
-        plt.ion()
-
-        tqdm.write(f"[INFO] Confusion matrix saved: {loss_path}")
 
 if __name__ == '__main__':
     main()
