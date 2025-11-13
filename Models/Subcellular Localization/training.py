@@ -230,7 +230,7 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
     tqdm.write(f"[INFO] Taining curves saved: {loss_path}")
     plt.close()
 
-def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model"):
+def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True):
     """
     Reproduit le style d'affichage des notebooks pour la matrice de confusion.
     cf_matrix : matrice numpy NxN retournée par ConfusionMatrix.ret_mat()
@@ -240,6 +240,8 @@ def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"
 
     if classes is None:
         classes = [str(i) for i in range(n_class)]
+    if Norm:
+        cf_matrix = cf_matrix.astype('float') / cf_matrix.sum(axis=1, keepdims=True)
 
     plt.figure(figsize=(8, 6))
     plt.imshow(cf_matrix, interpolation='nearest', cmap=plt.cm.Blues)
@@ -506,9 +508,11 @@ def main():
         
         ### Confusion matrix ###
         cf_val = history['cf_val']
+        classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
+           'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
         plot_confusion_matrix_(
                 cf_matrix=cf_val,
-                classes=[str(i) for i in range(cf_val.shape[0])],
+                classes=classes,
                 title=f"Matrice de confusion - {args.model}",
                 model_name=args.model
         )
