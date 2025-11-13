@@ -418,7 +418,11 @@ def train_model(model_name,
 
     history = {
         'train_losses': train_losses,
-        'val_losses': val_losses
+        'val_losses': val_losses,
+        'cf_val': cf_val,
+        'cf_train': cf_train,
+        'train_acc':train_acc,
+        'val_acc': val_acc
     }
     return l_out, history
 
