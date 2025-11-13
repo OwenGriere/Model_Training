@@ -480,7 +480,36 @@ def main():
 
     if not args.no_plot:
         os.makedirs("Figures", exist_ok=True)
-        tqdm.write(f"[INFO] Plot saved in Figures/\n")
+        plt.ioff()
+
+        ### Training curve ###
+        fig1 = plt.figure(figsize=(10, 5))
+        plot_training_curves(
+            train_losses=history['train_losses'],
+            val_losses=history['val_losses'],
+            train_accs=history.get('train_accs', None),
+            val_accs=history.get('val_accs', None),
+            model_name=args.model
+        )
+        loss_path = f"Figures/{model_label}_loss_and_accuracy.png"
+        fig1.savefig(loss_path)
+        plt.close(fig1)
+        tqdm.write(f"[INFO] Taining curves saved: {loss_path}")
+
+        ### Confusion matrix ###
+        cf_val = history['cf_val']
+        fig2 = plt.figure(figsize=(8, 6))
+        plot_confusion_matrix_(
+                cf_matrix=cf_val,
+                classes=[str(i) for i in range(cf_val.shape[0])],
+                title=f"Matrice de confusion - {args.model}"
+        )
+        cf_path = f"Figures/{model_label}_confusion.png"
+        fig2.savefig(cf_path)
+        plt.close(fig2)
+        plt.ion()
+
+        tqdm.write(f"[INFO] Confusion matrix saved: {loss_path}")
 
 if __name__ == '__main__':
     main()
