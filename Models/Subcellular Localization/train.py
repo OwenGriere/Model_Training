@@ -224,6 +224,7 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
 def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True, verbose=False):
 
     n_class = cf_matrix.shape[0]
+    counts_per_class = cf_matrix.sum(axis=1)
 
     if classes is None:
         classes = [str(i) for i in range(n_class)]
@@ -236,8 +237,9 @@ def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"
     plt.colorbar()
 
     tick_marks = np.arange(n_class)
+    ytick_labels = [f"({int(counts_per_class[i])} elements) {classes[i]}" for i in range(n_class)]
     plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, classes)
+    plt.yticks(tick_marks, ytick_labels)
 
     thresh = cf_matrix.max() / 2
 
