@@ -1,3 +1,4 @@
 Models/Subcellular Localization/__pycache__
 Models/Subcellular Localization/params/*_params.npz
 Models/Subcellular Localization/Figures/*.png
+Models/Subcellular Localization/params/params.csv
