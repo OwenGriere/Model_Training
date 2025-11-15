@@ -2,7 +2,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 import lasagne
-from utils import LSTMAttentionDecodeFeedbackLayer, DropoutSeqPosLayer 
+from .utils import LSTMAttentionDecodeFeedbackLayer, DropoutSeqPosLayer 
 
 def FFN(batch_size, seq_len, n_hid, n_feat, n_class, lr, drop_prob):
 	"""Compile a Feed-forward neural network for protein subcellular localization

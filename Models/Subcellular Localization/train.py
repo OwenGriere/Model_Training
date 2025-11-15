@@ -275,14 +275,12 @@ def train_model(ID, model_name,
                 patience=10,
                 min_delta=0.0):
 
-    # Dépaquetage des données
     X_train, y_train, mask_train = train_data
     if test_data is not None:
         X_test, y_test, mask_test = test_data
     else:
         X_test = y_test = mask_test = None
 
-    # Infos sur les shapes et le nombre de classes
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
@@ -291,7 +289,7 @@ def train_model(ID, model_name,
         if X_test is not None:
             tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
 
-    # Les modèles LSTM consomment un masque
+    # Pour les models utilisant un mask
     uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
 
     
@@ -316,11 +314,11 @@ def train_model(ID, model_name,
     cf_val = None
 
 
-    with tqdm(total=num_epochs, desc=f"[TRAINING] {model_name} training phase", ncols=90) as pbar:
+    with tqdm(total=num_epochs, desc=f"\t[TRAINING] {model_name} training phase", ncols=90) as pbar:
         for epoch in range(1, num_epochs + 1):
-            # ============================
-            #      PHASE TRAINING
-            # ============================
+
+            # === TRAINING du model === #
+
             train_err = 0.0
             train_batches = 0
             confusion_train = ConfusionMatrix(n_class)
