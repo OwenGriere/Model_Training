@@ -487,7 +487,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         verbose=args.verbose)
 
     tqdm.write(f"[INFO] Training finished\n")
-    
+
     params_frame.to_parquet(args.params_path)
     tqdm.write(f"[INFO] Parameters saved\n")
 
@@ -501,7 +501,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
             val_losses=history['val_losses'],
             train_accs=history.get('train_accs', None),
             val_accs=history.get('val_accs', None),
-            model_name=args.model
+            model_name=f'{model_name}_{ID}'
         )
         
         # === Confusion matrix === #
@@ -511,8 +511,8 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         plot_confusion_matrix_(
                 cf_matrix=cf_val,
                 classes=classes,
-                title=f"Matrice de confusion - {args.model}",
-                model_name=args.model
+                title=f"Matrice de confusion - {model_name}",
+                model_name=f'{model_name}_{ID}'
         )
 
 if __name__ == '__main__':
@@ -534,6 +534,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config_path', type=str, default='./config.yaml', help='Add config path')
     parser.add_argument('-p', '--params_path', type=str, default='./params/params.csv', help='Add saving path for parameters')
     parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
+    parser.add_argument('--no_plot', action='store_true',help='Use that to force the unplotting')
     parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
     args = parser.parse_args()
 
