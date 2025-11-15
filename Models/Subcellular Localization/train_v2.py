@@ -487,6 +487,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         verbose=args.verbose)
 
     tqdm.write(f"[INFO] Training finished\n")
+    
     params_frame.to_parquet(args.params_path)
     tqdm.write(f"[INFO] Parameters saved\n")
 
