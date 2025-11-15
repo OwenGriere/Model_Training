@@ -316,9 +316,17 @@ def train_model(ID, model_name,
     cf_val = None
 
 
-    with tqdm(total=num_epochs, desc=f"\t[TRAINING] {model_name} training phase", ncols=90) as pbar:
+    with tqdm(total=num_epochs, desc=f"[TRAINING] ID={ID} | {model_name}", ncols=90) as pbar:
+        """
+        pbar.set_postfix({
+                "bs": batch_size,
+                "lr": lr,
+                "hid": n_hid,
+                "filt": n_filt,
+                "drop": drop_prob
+            })
+        """
         for epoch in range(1, num_epochs + 1):
-
             # === TRAINING du model === #
 
             train_err = 0.0
@@ -538,7 +546,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--params_path', type=str, default='./params/params.parquet', help='Add saving path for parameters in .parquet')
     parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
     parser.add_argument('--no_plot', action='store_true',help='Use that to force the unplotting')
-    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
+    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos générales')
     parser.add_argument('--all_verbose', action='store_true', help='Ne pas afficher les infos de training')
     args = parser.parse_args()
 
@@ -579,8 +587,8 @@ if __name__ == '__main__':
 
         with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=100) as pbar:
             for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
-
-                tqdm.write(f"\n[RUN {run_idx+1}/{len(hyper_grid)}] ID={ID} | "
+                if args.verbose:
+                    tqdm.write(f"\n[RUN {run_idx+1}/{len(hyper_grid)}] ID={ID} | "
                            f"model={model_name} | bs={batch_size} | lr={lr} | "
                            f"n_hid={n_hid} | n_filt={n_filt} | drop={drop_prob}")
 
