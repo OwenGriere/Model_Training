@@ -579,11 +579,6 @@ if __name__ == '__main__':
 
         with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=100) as pbar:
             for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
-                
-                if args.all_verbose:
-                    verbose_flag = True
-                else:
-                    verbose_flag = args.verbose
 
                 tqdm.write(f"\n[RUN {run_idx+1}/{len(hyper_grid)}] ID={ID} | "
                            f"model={model_name} | bs={batch_size} | lr={lr} | "
@@ -591,8 +586,7 @@ if __name__ == '__main__':
 
                 main(ID,model_name,batch_size,epochs,
                     lr,n_hid,n_filt,drop_prob,
-                    train_data,test_data,
-                    params_frame=params_frame,no_plot=args.no_plot,verbose=verbose_flag
+                    train_data,test_data
                 )
 
                 ID = str(int(ID) + 1).zfill(len(ID))
