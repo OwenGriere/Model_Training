@@ -256,6 +256,7 @@ def train_model(ID, model_name,
                 drop_prob=0.5,
                 save_params_frame=None,
                 verbose=False,
+                all_verbose=False,
                 early_stopping=True,
                 patience=5,
                 min_delta=0.0):
@@ -271,10 +272,10 @@ def train_model(ID, model_name,
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
-
-    tqdm.write(f"[INFO] Train shape: {X_train.shape}, n_class: {n_class}")
-    if X_test is not None:
-        tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
+    if verbose:
+        tqdm.write(f"[INFO] Train shape: {X_train.shape}, n_class: {n_class}")
+        if X_test is not None:
+            tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
 
     # Les modèles LSTM consomment un masque
     uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
@@ -290,7 +291,8 @@ def train_model(ID, model_name,
         lr=lr,
         drop_prob=drop_prob
     )
-    tqdm.write(f'[INFO] {model_name} model build with success\n')
+    if verbose or all_verbose:
+        tqdm.write(f'[INFO] {model_name} model build with success\n')
 
     train_losses = []
     val_losses = []
@@ -369,7 +371,7 @@ def train_model(ID, model_name,
                 val_losses.append(val_loss)
                 val_acc = confusion_valid.accuracy()
                 cf_val = confusion_valid.ret_mat()
-                if verbose:
+                if all_verbose:
                     tqdm.write(
                         f"Epoch {epoch:02d}/{num_epochs} | "
                         f"train_loss {train_loss:.6f} | test_loss {val_loss:.6f} | "
@@ -387,14 +389,15 @@ def train_model(ID, model_name,
                         epochs_no_improve += 1
 
                         if epochs_no_improve >= patience:
-                            tqdm.write(
-                                f"[EARLY STOPPING] Stopping at epoch {epoch} "
-                                f"(best epoch = {best_epoch}, best val_loss = {best_val_loss:.6f})\n"
-                            )
+                            if verbose or all_verbose:
+                                tqdm.write(
+                                    f"[EARLY STOPPING] Stopping at epoch {epoch} "
+                                    f"(best epoch = {best_epoch}, best val_loss = {best_val_loss:.6f})\n"
+                                )
                             pbar.update(1)
                             break
 
-                if verbose:
+                if all_verbose:
                     tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
                     tqdm.write("  validation Gorodkin:\t{:.2f}".format(gorodkin(cf_val)))
                     tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
@@ -406,7 +409,7 @@ def train_model(ID, model_name,
                     ic_train = IC(cf_train)
                     ic_val   = IC(cf_val)
 
-                    confusion_score = g_val
+                    # === confusion_score = g_val
 
                     save_params(
                         save_params_frame,
@@ -430,11 +433,10 @@ def train_model(ID, model_name,
                         gorodkin_train=g_train,
                         gorodkin_val=g_val,
                         IC_train=ic_train,
-                        IC_val=ic_val,
-                        confusion_score=confusion_score
+                        IC_val=ic_val
                     )
             else:
-                if verbose:
+                if all_verbose:
                     tqdm.write(
                         f"Epoch {epoch:02d}/{num_epochs} | "
                         f"train_loss {train_loss:.6f} | train_acc {train_acc*100:.2f}%"
@@ -484,12 +486,16 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         n_filt=n_filt,
         drop_prob=drop_prob,
         save_params_frame=params_frame,
-        verbose=args.verbose)
-
-    tqdm.write(f"[INFO] Training finished\n")
+        verbose=args.verbose,
+        all_verbose=args.all_verbose)
+    
+    if args.verbose or args.all_verbose:
+        tqdm.write(f"[INFO] Training finished\n")
 
     params_frame.to_parquet(args.params_path)
-    tqdm.write(f"[INFO] Parameters saved\n")
+
+    if args.verbose or args.all_verbose:
+        tqdm.write(f"[INFO] Parameters saved\n")
 
     if not args.no_plot:
         os.makedirs("Figures", exist_ok=True)
@@ -525,17 +531,17 @@ if __name__ == '__main__':
         "train_loss", "val_loss",
         "train_acc", "val_acc",
         "gorodkin_train", "gorodkin_val",
-        "IC_train", "IC_val",
-        "confusion_score"
+        "IC_train", "IC_val"
     ]
     # === Chargement des parametres === #
     parser = argparse.ArgumentParser(description="Lancer l'entraînement d'un modèle du projet Subcellular Localization")
 
     parser.add_argument('-c', '--config_path', type=str, default='./config.yaml', help='Add config path')
-    parser.add_argument('-p', '--params_path', type=str, default='./params/params.csv', help='Add saving path for parameters')
+    parser.add_argument('-p', '--params_path', type=str, default='./params/params.parquet', help='Add saving path for parameters in .parquet')
     parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
     parser.add_argument('--no_plot', action='store_true',help='Use that to force the unplotting')
     parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
+    parser.add_argument('--all_verbose', action='store_true', help='Ne pas afficher les infos de training')
     args = parser.parse_args()
 
     params_frame = import_params(args.params_path, model=cols)
