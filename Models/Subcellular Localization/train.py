@@ -5,6 +5,7 @@ os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=flo
 sys.path = [p for p in sys.path if ".local/lib/python3.8/site-packages" not in p]
 import argparse
 import numpy as np
+import pandas as pd
 
 import matplotlib
 matplotlib.use("Agg")
@@ -15,7 +16,6 @@ import itertools
 import theano
 import theano.tensor as T
 import lasagne
-import pandas as pd
 
 from mypackage.models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
 from mypackage.confusionmatrix import ConfusionMatrix
@@ -574,14 +574,8 @@ if __name__ == '__main__':
         epochs_list  = ensure_list(CONFIG["training"]["epochs"])
         lrs          = ensure_list(CONFIG["training"]["learning_rate"])
 
-        hyper_grid = list(itertools.product(
-            model_names,
-            batch_sizes,
-            epochs_list,
-            lrs,
-            n_hids,
-            n_filts,
-            drop_probs))
+        hyper_grid = list(itertools.product(model_names,batch_sizes,epochs_list,
+            lrs,n_hids,n_filts,drop_probs))
 
         with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=100) as pbar:
             for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
