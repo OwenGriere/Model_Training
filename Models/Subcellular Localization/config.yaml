@@ -1,0 +1,15 @@
+ID: '001'
+model:
+  name: CNN
+  n_hid: 128
+  n_filt: 64
+  drop_prob: 0.5
+
+training:
+  batch_size: 32
+  learnin_rate: 0.001
+  epochs: 20
+
+dataset:
+  train_path: "data/reduced_train.npz"
+  test_path: "data/reduced_val.npz"

@@ -1,5 +1,6 @@
 import os
 import sys
+import yaml
 os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=float32"
 sys.path = [p for p in sys.path if ".local/lib/python3.8/site-packages" not in p]
 import argparse
@@ -17,6 +18,22 @@ from utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer
 from metrics_mc import gorodkin, IC
 
 ##################################################### Helper Function #####################################################
+def import_config(path):
+    with open(path, "r") as f:
+        config = yaml.safe_load(f)
+    return config
+
+def import_params(path, model):
+    if os.path.exists(path):
+        df = pd.read_parquet(path)
+        return df
+    else:
+        df = pd.DataFrame(columns=model)
+        return df
+
+def save_params(df, **params):
+    df.loc[len(df)] = params
+    return None
 
 def build_model_from_name(model_name,
                           X_train, y_train,
@@ -25,11 +42,7 @@ def build_model_from_name(model_name,
                           n_filt,
                           lr,
                           drop_prob):
-    """
-    Wrapper pour choisir la bonne fonction de création de réseau
-    en fonction du nom du modèle.
-    Retourne (train_fn, val_fn, l_out).
-    """
+
     if model_name == 'FFN':
         return build_FFN_network(
             X_train, y_train,
@@ -79,16 +92,12 @@ def build_FFN_network(X_train, y_train,
                       n_hid=30,
                       lr=0.0025,
                       drop_prob=0.5):
-    """
-    Construit le réseau FFN comme dans le notebook FFN.ipynb.
-    Retourne (train_fn, val_fn, l_out).
-    """
-    # On récupère les dimensions directement depuis les données
+    
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
 
-    # Appel à la fonction FFN définie dans models.py
+
     train_fn, val_fn, l_out = FFN(
         batch_size=batch_size,
         seq_len=seq_len,
@@ -107,10 +116,6 @@ def build_CNN_network(X_train, y_train,
                       n_filt=10,
                       lr=0.005,
                       drop_prob=0.5):
-    """
-    Construit le réseau CNN comme dans le notebook CNN.ipynb.
-    Retourne (train_fn, val_fn, l_out).
-    """
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
@@ -134,11 +139,6 @@ def build_CNN_LSTM_network(X_train, y_train,
                            n_filt=10,
                            lr=0.0025,
                            drop_prob=0.5):
-    """
-    Construit le réseau CNN-LSTM comme dans le notebook CNN-LSTM.ipynb.
-    Retourne (train_fn, val_fn, l_out).
-    Ce modèle utilise un masque à l'entraînement et à la validation.
-    """
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
@@ -162,13 +162,6 @@ def build_CNN_LSTM_Att_network(X_train, y_train,
                                n_filt=10,
                                lr=0.0025,
                                drop_prob=0.5):
-    """
-    Construit le réseau CNN-LSTM-Attention comme dans le notebook
-    CNN-LSTM-Attention.ipynb.
-    Retourne (train_fn, val_fn, l_out).
-    Ce modèle utilise un masque et la fonction de validation renvoie
-    également les poids d'attention.
-    """
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
@@ -217,10 +210,6 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
     plt.close()
 
 def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True):
-    """
-    Reproduit le style d'affichage des notebooks pour la matrice de confusion.
-    cf_matrix : matrice numpy NxN retournée par ConfusionMatrix.ret_mat()
-    """
 
     n_class = cf_matrix.shape[0]
 
@@ -256,7 +245,7 @@ def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion"
 
 ##################################################### Model Training #####################################################
 
-def train_model(model_name, ID, 
+def train_model(ID, model_name, 
                 train_data,
                 test_data=None,
                 batch_size=32,
@@ -265,7 +254,7 @@ def train_model(model_name, ID,
                 n_hid=128,
                 n_filt=64,
                 drop_prob=0.5,
-                save_params_name=None,
+                save_params_frame=None,
                 verbose=False,
                 early_stopping=True,
                 patience=5,
@@ -309,6 +298,10 @@ def train_model(model_name, ID,
     best_params = None
     best_epoch = 0
     epochs_no_improve = 0
+    train_accs = []
+    val_accs = []
+    cf_val = None
+
 
     with tqdm(total=num_epochs, desc=f"[TRAINING] {model_name} training phase", ncols=90) as pbar:
         for epoch in range(1, num_epochs + 1):
@@ -390,13 +383,8 @@ def train_model(model_name, ID,
                         best_epoch = epoch
                         epochs_no_improve = 0
 
-                        if save_params_name is not None:
-                            os.makedirs('params', exist_ok=True)
-                            np.savez(os.path.join('params', save_params_name), *best_params)
                     else:
                         epochs_no_improve += 1
-                        if verbose:
-                            tqdm.write(f"[EARLY STOPPING] No improvement for {epochs_no_improve} epoch(s).")
 
                         if epochs_no_improve >= patience:
                             tqdm.write(
@@ -405,13 +393,6 @@ def train_model(model_name, ID,
                             )
                             pbar.update(1)
                             break
-                
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    best_params = lasagne.layers.get_all_param_values(l_out)
-                    if save_params_name is not None:
-                        os.makedirs('params', exist_ok=True)
-                        np.savez(os.path.join('params', save_params_name), *best_params)
 
                 if verbose:
                     tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
@@ -419,6 +400,39 @@ def train_model(model_name, ID,
                     tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
                     tqdm.write("  validation IC:\t{:.2f}".format(IC(cf_val)))
 
+                if save_params_frame is not None:
+                    g_train = gorodkin(cf_train)
+                    g_val   = gorodkin(cf_val)
+                    ic_train = IC(cf_train)
+                    ic_val   = IC(cf_val)
+
+                    confusion_score = g_val
+
+                    save_params(
+                        save_params_frame,
+                        ID=ID,
+                        model_name=model_name,
+                        epoch=epoch,
+                        batch_size=batch_size,
+                        lr=lr,
+                        n_hid=n_hid,
+                        n_filt=n_filt if model_name != 'FFN' else np.nan,
+                        drop_prob=drop_prob,
+                        seq_len=seq_len,
+                        n_feat=n_feat,
+                        n_class=n_class,
+                        uses_mask=uses_mask,
+                        attention=(model_name == 'CNN-LSTM-Attention'),
+                        train_loss=train_loss,
+                        val_loss=val_loss,
+                        train_acc=train_acc,
+                        val_acc=val_acc,
+                        gorodkin_train=g_train,
+                        gorodkin_val=g_val,
+                        IC_train=ic_train,
+                        IC_val=ic_val,
+                        confusion_score=confusion_score
+                    )
             else:
                 if verbose:
                     tqdm.write(
@@ -427,19 +441,6 @@ def train_model(model_name, ID,
                     )
 
             pbar.update(1)
-
-    # === SAUVEGARDE FINALE === #
-
-    if save_params_name is None:
-        save_params_name = f"{model_name}_params.npz"
-
-    if best_params is not None:
-        np.savez(os.path.join('params', save_params_name), *best_params)
-    else:
-        np.savez(
-            os.path.join('params', save_params_name),
-            *lasagne.layers.get_all_param_values(l_out)
-        )
 
     history = {
         'train_losses': train_losses,
@@ -454,58 +455,40 @@ def train_model(model_name, ID,
 
 ##################################################### Main #####################################################
 
-def main():
-
-    # === Chargement des parametres === #
-
-    parser = argparse.ArgumentParser(description="Lancer l'entraînement d'un modèle du projet Subcellular Localization")
-    
-    parser.add_argument('--model', type=str,choices=['FFN', 'CNN', 'CNN_LSTM', 'CNN-LSTM-Attention'],default='CNN',help='Nom du modèle à entraîner')
-    parser.add_argument('-i', '--trainset',help="Fichier .npz contenant les données d'entraînement (X_train, y_train, mask_train)")
-    parser.add_argument('-t', '--testset', help="Fichier .npz contenant les données de test (X_test, y_test, mask_test) pour l'évaluation")
-    parser.add_argument('--epochs', type=int, default=20, help='Nombre d’epochs')
-    parser.add_argument('--batch_size', type=int, default=32, help='Taille de mini-batch')
-    parser.add_argument('--lr', type=float, default=0.001, help='Taux d’apprentissage')
-    parser.add_argument('--n_hid', type=int, default=128, help='Nombre de neurones cachés')
-    parser.add_argument('--n_filt', type=int, default=64, help='Nombre de filtres convolutifs')
-    parser.add_argument('--drop', type=float, default=0.5, help='Taux de dropout')
-    parser.add_argument('--no_plot', action='store_true', help='Ne pas afficher les courbes de perte')
-    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
-    args = parser.parse_args()
+def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, train_path, test_path):
 
     # === Chargement des données d'entraînement === #
-    train_npz = np.load(args.trainset)
+    train_npz = np.load(train_path)
     X_train = train_npz['X_train']
     y_train = train_npz['y_train']
     mask_train = train_npz['mask_train']
     train_data = (X_train, y_train, mask_train)
 
     test_data = None
-    if args.testset is not None:
-        test_npz = np.load(args.testset)
+    if test_path is not None:
+        test_npz = np.load(test_path)
         X_test = test_npz['X_val']
         y_test = test_npz['y_val']
         mask_test = test_npz['mask_val']
         test_data = (X_test, y_test, mask_test)
 
-    model_label = args.model.replace('-', '_')
-    params_fname = f"{model_label}_params.npz"
-
     # === Entraînement du modèle choisi === #
-    l_out, history = train_model(
-        model_name=args.model,
+    l_out, history = train_model(ID,
+        model_name=model_name,
         train_data=train_data,
         test_data=test_data,
-        batch_size=args.batch_size,
-        num_epochs=args.epochs,
-        lr=args.lr,
-        n_hid=args.n_hid,
-        n_filt=args.n_filt,
-        drop_prob=args.drop,
-        save_params_name=params_fname,
+        batch_size=batch_size,
+        num_epochs=num_epochs,
+        lr=lr,
+        n_hid=n_hid,
+        n_filt=n_filt,
+        drop_prob=drop_prob,
+        save_params_frame=params_frame,
         verbose=args.verbose)
 
     tqdm.write(f"[INFO] Training finished\n")
+    params_frame.to_parquet(args.params_path)
+    tqdm.write(f"[INFO] Parameters saved\n")
 
     if not args.no_plot:
         os.makedirs("Figures", exist_ok=True)
@@ -532,4 +515,42 @@ def main():
         )
 
 if __name__ == '__main__':
-    main()
+
+    cols = ["ID",
+        "model_name", "epoch",
+        "batch_size", "lr", "n_hid", "n_filt", "drop_prob",
+        "seq_len", "n_feat", "n_class",
+        "uses_mask", "attention",
+        "train_loss", "val_loss",
+        "train_acc", "val_acc",
+        "gorodkin_train", "gorodkin_val",
+        "IC_train", "IC_val",
+        "confusion_score"
+    ]
+    # === Chargement des parametres === #
+    parser = argparse.ArgumentParser(description="Lancer l'entraînement d'un modèle du projet Subcellular Localization")
+
+    parser.add_argument('-c', '--config_path', type=str, default='./config.yaml', help='Add config path')
+    parser.add_argument('-p', '--params_path', type=str, default='./params/params.csv', help='Add saving path for parameters')
+    parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
+    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos de training')
+    args = parser.parse_args()
+
+    params_frame = import_params(args.params_path, model=cols)
+
+    if args.multimodel:
+        CONFIG = import_config('./multimodels.yaml')
+        ID = CONFIG["ID"]
+
+        
+    else:
+        CONFIG = import_config(args.config_path)
+        ID = CONFIG["ID"]
+        main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
+             CONFIG["training"]["epochs"], CONFIG["training"]["learnin_rate"], 
+             CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
+             CONFIG["dataset"]["train_path"], CONFIG["dataset"]["test_path"])
+
+    
+
+    

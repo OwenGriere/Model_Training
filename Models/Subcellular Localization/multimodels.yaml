@@ -1,0 +1,14 @@
+
+model: CNN_LSTM
+
+n_hid: 128
+n_filt: 64
+drop_prob: 0.3
+
+batch_size: 32
+lr: 0.001
+epochs: 20
+
+dataset:
+  train_path: "data/train.npz"
+  test_path: "data/test.npz"
