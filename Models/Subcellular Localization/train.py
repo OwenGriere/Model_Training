@@ -316,8 +316,8 @@ def train_model(ID, model_name,
     cf_val = None
 
 
-    with tqdm(total=num_epochs, desc=f"[TRAINING] ID={ID} | {model_name}", ncols=90) as pbar:
-        """
+    with tqdm(total=num_epochs, desc=f"[TRAINING] ID={ID} | {model_name}", ncols=150) as pbar:
+        
         pbar.set_postfix({
                 "bs": batch_size,
                 "lr": lr,
@@ -325,7 +325,7 @@ def train_model(ID, model_name,
                 "filt": n_filt,
                 "drop": drop_prob
             })
-        """
+        
         for epoch in range(1, num_epochs + 1):
             # === TRAINING du model === #
 
@@ -585,7 +585,7 @@ if __name__ == '__main__':
         hyper_grid = list(itertools.product(model_names,batch_sizes,epochs_list,
             lrs,n_hids,n_filts,drop_probs))
 
-        with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=100) as pbar:
+        with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
             for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
                 if args.verbose:
                     tqdm.write(f"\n[RUN {run_idx+1}/{len(hyper_grid)}] ID={ID} | "
