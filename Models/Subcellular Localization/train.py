@@ -469,7 +469,7 @@ def train_model(ID, model_name,
 
     if early_stopping and best_params_values is not None:
         lasagne.layers.set_all_param_values(l_out, best_params_values)
-        
+
     history = {
         'train_losses': train_losses,
         'val_losses': val_losses,
@@ -554,7 +554,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config_path', type=str, default='./config/simple_model.yaml', help='Add config path')
     parser.add_argument('-p', '--params_path', type=str, default='./params/params.parquet', help='Add saving path for parameters in .parquet')
     parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
-    parser.add_argument('--save', action='store_true',help='Save the model in ./models')
+    parser.add_argument('--saving', action='store_true',help='Save the model in ./models/')
     parser.add_argument('--no_plot', action='store_true',help='Use that to force the unplotting')
     parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos générales')
     parser.add_argument('--all_verbose', action='store_true', help='Ne pas afficher les infos de training')
@@ -602,7 +602,7 @@ if __name__ == '__main__':
         hyper_grid = list(itertools.product(model_names,batch_sizes,epochs_list,
             lrs,n_hids,n_filts,drop_probs))
         
-        if args.save:
+        if args.saving:
             with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
                 for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
 
@@ -631,7 +631,7 @@ if __name__ == '__main__':
     # === Single model === #
 
     else:
-        if args.save:
+        if args.saving:
             params = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
