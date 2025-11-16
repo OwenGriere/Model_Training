@@ -1,13 +1,13 @@
 ID: "001"
 
 model:
-  name: ["FFN", "CNN", "CNN-LSTM", "CNN-LSTM-Attention"]
+  name: ["CNN-LSTM", "CNN-LSTM-Attention"]
   n_hid: [64, 128]
   n_filt: [32, 64]
   drop_prob: [0.3, 0.5] 
 training:
   batch_size: [32, 64]
-  epochs: 60
+  epochs: 50
   learning_rate: [0.001, 0.0005]
 
 dataset:

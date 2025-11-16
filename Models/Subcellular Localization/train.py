@@ -292,7 +292,7 @@ def train_model(ID, model_name,
             tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
 
     # Pour les models utilisant un mask
-    uses_mask = model_name in ['CNN_LSTM', 'CNN-LSTM-Attention']
+    uses_mask = model_name in ['CNN-LSTM', 'CNN-LSTM-Attention']
 
     
     train_fn, val_fn, l_out = build_model_from_name(
