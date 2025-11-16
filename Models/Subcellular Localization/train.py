@@ -28,7 +28,7 @@ def ensure_list(x):
         return list(x)
     else:
         return [x]
-    
+
 def import_config(path):
     with open(path, "r") as f:
         config = yaml.safe_load(f)
@@ -45,6 +45,12 @@ def import_params(path, model):
 def save_params(df, **params):
     df.loc[len(df)] = params
     return None
+
+def save_model(params, path):
+    values = [p.get_value() for p in params]
+    np.savez(path, *values)
+
+##################################################### Build different Network #####################################################
 
 def build_model_from_name(model_name,
                           X_train, y_train,
@@ -95,8 +101,6 @@ def build_model_from_name(model_name,
 
     else:
         raise ValueError(f"Modèle inconnu : {model_name}")
-
-##################################################### Build different Network #####################################################
 
 def build_FFN_network(X_train, y_train,
                       batch_size=128,
@@ -314,7 +318,7 @@ def train_model(ID, model_name,
     best_epoch = 0
     epochs_no_improve = 0
     cf_val = None
-
+    best_params_values = None 
 
     with tqdm(total=num_epochs, desc=f"[TRAINING] ID={ID} | {model_name}", ncols=150) as pbar:
         
@@ -400,7 +404,7 @@ def train_model(ID, model_name,
                 if early_stopping:
                     if val_loss < (best_val_loss - min_delta):
                         best_val_loss = val_loss
-                        best_params = lasagne.layers.get_all_param_values(l_out)
+                        best_params_values = lasagne.layers.get_all_param_values(l_out)
                         best_epoch = epoch
                         epochs_no_improve = 0
 
@@ -463,6 +467,9 @@ def train_model(ID, model_name,
 
             pbar.update(1)
 
+    if early_stopping and best_params_values is not None:
+        lasagne.layers.set_all_param_values(l_out, best_params_values)
+        
     history = {
         'train_losses': train_losses,
         'val_losses': val_losses,
@@ -526,6 +533,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
                 model_name=f'{model_name}_{ID}',
                 verbose=args.all_verbose
         )
+    return lasagne.layers.get_all_params(l_out) 
 
 if __name__ == '__main__':
 
@@ -539,25 +547,32 @@ if __name__ == '__main__':
         "gorodkin_train", "gorodkin_val",
         "IC_train", "IC_val"
     ]
+
     # === Chargement des parametres === #
     parser = argparse.ArgumentParser(description="Lancer l'entraînement d'un modèle du projet Subcellular Localization")
 
     parser.add_argument('-c', '--config_path', type=str, default='./config/simple_model.yaml', help='Add config path')
     parser.add_argument('-p', '--params_path', type=str, default='./params/params.parquet', help='Add saving path for parameters in .parquet')
     parser.add_argument('--multimodel', action='store_true',help='Compute the main for mulimodel contained in multimodels.yaml')
+    parser.add_argument('--save', action='store_true',help='Save the model in ./models')
     parser.add_argument('--no_plot', action='store_true',help='Use that to force the unplotting')
     parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos générales')
     parser.add_argument('--all_verbose', action='store_true', help='Ne pas afficher les infos de training')
     args = parser.parse_args()
 
     params_frame = import_params(args.params_path, model=cols)
+    save_path = "./models"
+    os.makedirs(save_path, exist_ok=True)
+
+    # === Chargement des configs des models === #
 
     if args.multimodel:
         CONFIG = import_config('./config/multimodels.yaml')
     else:
         CONFIG = import_config(args.config_path)
     ID = CONFIG["ID"]
-    # === Chargement des données d'entraînement === #
+
+    # === Chargement des données d'entraînement et de validation === #
         
     train_npz = np.load(CONFIG["dataset"]["train_path"])
     X_train = train_npz['X_train']
@@ -573,6 +588,8 @@ if __name__ == '__main__':
         mask_test = test_npz['mask_val']
         test_data = (X_test, y_test, mask_test)
 
+    # === Multimodel === #
+
     if args.multimodel:
         model_names  = ensure_list(CONFIG["model"]["name"])
         n_hids       = ensure_list(CONFIG["model"]["n_hid"])
@@ -584,28 +601,49 @@ if __name__ == '__main__':
 
         hyper_grid = list(itertools.product(model_names,batch_sizes,epochs_list,
             lrs,n_hids,n_filts,drop_probs))
+        
+        if args.save:
+            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
+                for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
 
-        with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
-            for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
-                if args.verbose:
-                    tqdm.write(f"\n[RUN {run_idx+1}/{len(hyper_grid)}] ID={ID} | "
-                           f"model={model_name} | bs={batch_size} | lr={lr} | "
-                           f"n_hid={n_hid} | n_filt={n_filt} | drop={drop_prob}")
+                    params = main(ID,model_name,batch_size,epochs,
+                        lr,n_hid,n_filt,drop_prob,
+                        train_data,test_data
+                    )
+                    file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
+                    save_model(params, file_path)
 
-                main(ID,model_name,batch_size,epochs,
-                    lr,n_hid,n_filt,drop_prob,
-                    train_data,test_data
-                )
+                    ID = str(int(ID) + 1).zfill(len(ID))
+                    pbar.update(1)
 
-                ID = str(int(ID) + 1).zfill(len(ID))
-                pbar.update(1)
+        else:
+            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model - ", ncols=150) as pbar:
+                for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
+
+                    _ = main(ID,model_name,batch_size,epochs,
+                        lr,n_hid,n_filt,drop_prob,
+                        train_data,test_data
+                    )
+
+                    ID = str(int(ID) + 1).zfill(len(ID))
+                    pbar.update(1)
+
+    # === Single model === #
 
     else:
-        main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
-             CONFIG["training"]["epochs"], CONFIG["training"]["learnin_rate"], 
-             CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
-             train_data, test_data )
+        if args.save:
+            params = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
+                CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
+                CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
+                train_data, test_data )
+            
+            file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
+            save_model(params, file_path)
+        else:
+            _ = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
+                CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
+                CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
+                train_data, test_data )
 
-    
 
     
