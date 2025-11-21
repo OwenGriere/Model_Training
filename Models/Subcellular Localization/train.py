@@ -17,30 +17,17 @@ import theano
 import theano.tensor as T
 import lasagne
 
-from mypackage.models import FFN, CNN, CNN_LSTM, CNN_LSTM_Att
+from mypackage.building_models import *
 from mypackage.confusionmatrix import ConfusionMatrix
-from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer
+from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer, import_config, import_params
 from mypackage.metrics_mc import gorodkin, IC
-
+from mypackage.plotting import *
 ##################################################### Helper Function #####################################################
 def ensure_list(x):
     if isinstance(x, (list, tuple)):
         return list(x)
     else:
         return [x]
-
-def import_config(path):
-    with open(path, "r") as f:
-        config = yaml.safe_load(f)
-    return config
-
-def import_params(path, model):
-    if os.path.exists(path):
-        df = pd.read_parquet(path)
-        return df
-    else:
-        df = pd.DataFrame(columns=model)
-        return df
 
 def save_params(df, **params):
     df.loc[len(df)] = params
@@ -49,219 +36,6 @@ def save_params(df, **params):
 def save_model(params, path):
     values = [p.get_value() for p in params]
     np.savez(path, *values)
-
-##################################################### Build different Network #####################################################
-
-def build_model_from_name(model_name,
-                          X_train, y_train,
-                          batch_size,
-                          n_hid,
-                          n_filt,
-                          lr,
-                          drop_prob):
-
-    if model_name == 'FFN':
-        return build_FFN_network(
-            X_train, y_train,
-            batch_size=batch_size,
-            n_hid=n_hid,
-            lr=lr,
-            drop_prob=drop_prob
-        )
-
-    elif model_name == 'CNN':
-        return build_CNN_network(
-            X_train, y_train,
-            batch_size=batch_size,
-            n_hid=n_hid,
-            n_filt=n_filt,
-            lr=lr,
-            drop_prob=drop_prob
-        )
-
-    elif model_name == 'CNN-LSTM':
-        return build_CNN_LSTM_network(
-            X_train, y_train,
-            batch_size=batch_size,
-            n_hid=n_hid,
-            n_filt=n_filt,
-            lr=lr,
-            drop_prob=drop_prob
-        )
-
-    elif model_name == 'CNN-LSTM-Attention':
-        return build_CNN_LSTM_Att_network(
-            X_train, y_train,
-            batch_size=batch_size,
-            n_hid=n_hid,
-            n_filt=n_filt,
-            lr=lr,
-            drop_prob=drop_prob
-        )
-
-    else:
-        raise ValueError(f"Modèle inconnu : {model_name}")
-
-def build_FFN_network(X_train, y_train,
-                      batch_size=128,
-                      n_hid=30,
-                      lr=0.0025,
-                      drop_prob=0.5):
-    
-    seq_len = X_train.shape[1]
-    n_feat = X_train.shape[2]
-    n_class = int(np.max(y_train) + 1)
-
-
-    train_fn, val_fn, l_out = FFN(
-        batch_size=batch_size,
-        seq_len=seq_len,
-        n_hid=n_hid,
-        n_feat=n_feat,
-        n_class=n_class,
-        lr=lr,
-        drop_prob=drop_prob
-    )
-
-    return train_fn, val_fn, l_out
-
-def build_CNN_network(X_train, y_train,
-                      batch_size=128,
-                      n_hid=30,
-                      n_filt=10,
-                      lr=0.005,
-                      drop_prob=0.5):
-    seq_len = X_train.shape[1]
-    n_feat = X_train.shape[2]
-    n_class = int(np.max(y_train) + 1)
-
-    train_fn, val_fn, l_out = CNN(
-        batch_size=batch_size,
-        seq_len=seq_len,
-        n_hid=n_hid,
-        n_feat=n_feat,
-        n_class=n_class,
-        n_filt=n_filt,
-        lr=lr,
-        drop_prob=drop_prob
-    )
-
-    return train_fn, val_fn, l_out
-
-def build_CNN_LSTM_network(X_train, y_train,
-                           batch_size=128,
-                           n_hid=15,
-                           n_filt=10,
-                           lr=0.0025,
-                           drop_prob=0.5):
-    seq_len = X_train.shape[1]
-    n_feat = X_train.shape[2]
-    n_class = int(np.max(y_train) + 1)
-
-    train_fn, val_fn, l_out = CNN_LSTM(
-        batch_size=batch_size,
-        seq_len=seq_len,
-        n_hid=n_hid,
-        n_feat=n_feat,
-        n_class=n_class,
-        n_filt=n_filt,
-        lr=lr,
-        drop_prob=drop_prob
-    )
-
-    return train_fn, val_fn, l_out
-
-def build_CNN_LSTM_Att_network(X_train, y_train,
-                               batch_size=128,
-                               n_hid=15,
-                               n_filt=10,
-                               lr=0.0025,
-                               drop_prob=0.5):
-    seq_len = X_train.shape[1]
-    n_feat = X_train.shape[2]
-    n_class = int(np.max(y_train) + 1)
-
-    train_fn, val_fn, l_out = CNN_LSTM_Att(
-        batch_size=batch_size,
-        seq_len=seq_len,
-        n_hid=n_hid,
-        n_feat=n_feat,
-        n_class=n_class,
-        n_filt=n_filt,
-        lr=lr,
-        drop_prob=drop_prob
-    )
-
-    return train_fn, val_fn, l_out
-
-##################################################### PLotting #####################################################
-
-def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=None, model_name="Model", verbose=False):
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(train_losses, label='Train loss')
-    if val_losses:
-        plt.plot(val_losses, label='Test loss')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title(f"Courbes de pertes - {model_name}")
-    plt.grid(True)
-    plt.legend()
-
-    if train_accs is not None and val_accs is not None:
-        plt.subplot(1, 2, 2)
-        plt.plot(train_accs, label='Train acc')
-        plt.plot(val_accs, label='Test acc')
-        plt.xlabel("Epoch")
-        plt.ylabel("Accuracy")
-        plt.title(f"Accuracy - {model_name}")
-        plt.grid(True)
-        plt.legend()
-
-    plt.tight_layout()
-    loss_path = f"Figures/{model_name}_loss_and_accuracy.png"
-    plt.savefig(loss_path)
-    plt.close()
-    if verbose:
-        tqdm.write(f"[INFO] Taining curves saved: {loss_path}")
-
-def plot_confusion_matrix_(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True, verbose=False):
-
-    n_class = cf_matrix.shape[0]
-    counts_per_class = cf_matrix.sum(axis=1)
-
-    if classes is None:
-        classes = [str(i) for i in range(n_class)]
-    if Norm:
-        cf_matrix = cf_matrix.astype('float') / cf_matrix.sum(axis=1, keepdims=True)
-
-    plt.figure(figsize=(8, 6))
-    plt.imshow(cf_matrix, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title(title)
-    plt.colorbar()
-
-    tick_marks = np.arange(n_class)
-    ytick_labels = [f"({int(counts_per_class[i])} elements) {classes[i]}" for i in range(n_class)]
-    plt.xticks(tick_marks, classes, rotation=45)
-    plt.yticks(tick_marks, ytick_labels)
-
-    thresh = cf_matrix.max() / 2
-
-    for i in range(n_class):
-        for j in range(n_class):
-            value = f"{cf_matrix[i, j]:.2f}"
-            plt.text(j, i, value,
-                     horizontalalignment="center",
-                     color="white" if cf_matrix[i, j] > thresh else "black")
-
-    plt.ylabel("Label réel")
-    plt.xlabel("Label prédit")
-    plt.tight_layout()
-    cf_path = f"Figures/{model_name}_confusion.png"
-    plt.savefig(cf_path)
-    plt.close()
-    if verbose:
-        tqdm.write(f"[INFO] Confusion matrix saved: {cf_path}")
 
 ##################################################### Model Training #####################################################
 
@@ -526,7 +300,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         cf_val = history['cf_val']
         classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
            'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
-        plot_confusion_matrix_(
+        plot_confusion_matrix(
                 cf_matrix=cf_val,
                 classes=classes,
                 title=f"Matrice de confusion - {model_name}",
@@ -580,13 +354,13 @@ if __name__ == '__main__':
     mask_train = train_npz['mask_train']
     train_data = (X_train, y_train, mask_train)
 
-    test_data = None
-    if CONFIG["dataset"]["test_path"] is not None:
-        test_npz = np.load(CONFIG["dataset"]["test_path"])
-        X_test = test_npz['X_val']
-        y_test = test_npz['y_val']
-        mask_test = test_npz['mask_val']
-        test_data = (X_test, y_test, mask_test)
+    val_data = None
+    if CONFIG["dataset"]["val_path"] is not None:
+        val_npz = np.load(CONFIG["dataset"]["val_path"])
+        X_val = val_npz['X_val']
+        y_val = val_npz['y_val']
+        mask_val = val_npz['mask_val']
+        val_data = (X_val, y_val, mask_val)
 
     # === Multimodel === #
 
@@ -608,7 +382,7 @@ if __name__ == '__main__':
 
                     params = main(ID,model_name,batch_size,epochs,
                         lr,n_hid,n_filt,drop_prob,
-                        train_data,test_data
+                        train_data,val_data
                     )
                     file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
                     save_model(params, file_path)
@@ -622,7 +396,7 @@ if __name__ == '__main__':
 
                     _ = main(ID,model_name,batch_size,epochs,
                         lr,n_hid,n_filt,drop_prob,
-                        train_data,test_data
+                        train_data,val_data
                     )
 
                     ID = str(int(ID) + 1).zfill(len(ID))
@@ -635,7 +409,7 @@ if __name__ == '__main__':
             params = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
-                train_data, test_data )
+                train_data, val_data)
             
             file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
             save_model(params, file_path)
@@ -643,7 +417,7 @@ if __name__ == '__main__':
             _ = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
-                train_data, test_data )
+                train_data, val_data )
 
 
     

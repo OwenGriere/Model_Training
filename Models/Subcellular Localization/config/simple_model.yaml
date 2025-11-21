@@ -1,15 +1,16 @@
-ID: '001'
+ID: '100'
 model:
-  name: CNN
-  n_hid: 128
+  name: CNN-LSTM
+  n_hid: 64
   n_filt: 64
-  drop_prob: 0.5
+  drop_prob: 0.3
 
 training:
   batch_size: 32
   learning_rate: 0.001
-  epochs: 20
+  epochs: 100
 
 dataset:
-  train_path: "data/reduced_train.npz"
-  test_path: "data/reduced_val.npz"
+  train_path: "data/train.npz" # "data/reduced_train.npz"
+  val_path: # "data/reduced_val.npz"
+  test_path: "data/test.npz"

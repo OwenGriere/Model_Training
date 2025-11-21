@@ -1,4 +1,7 @@
 import numpy as np
+import os
+import pandas as pd
+import yaml
 import theano
 import theano.tensor as T
 from lasagne import nonlinearities
@@ -77,8 +80,6 @@ def iterate_minibatches(inputs, targets, masks, batchsize, shuffle=False, sort_l
 
 		# Return a minibatch of each array
 		yield in_seq[shuf_ind], in_target[shuf_ind], in_mask[shuf_ind]
-
-
 
 class DropoutSeqPosLayer(Layer):
 	"""Dropout layer
@@ -663,5 +664,20 @@ class LSTMAttentionDecodeFeedbackLayer(MergeLayer):
 			return hid_out
 		else:
 			return weighted_hidden_out
+
+################## Adding ##################
+
+def import_config(path):
+    with open(path, "r") as f:
+        config = yaml.safe_load(f)
+    return config
+
+def import_params(path, model):
+    if os.path.exists(path):
+        df = pd.read_parquet(path)
+        return df
+    else:
+        df = pd.DataFrame(columns=model)
+        return df
 
 
