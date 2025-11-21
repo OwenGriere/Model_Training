@@ -28,7 +28,7 @@ def load_npz_weights(npz_path):
     weights = [data[f"arr_{i}"] for i in range(len(data.files))]
     return weights
 
-def evaluate_model(val_fn, l_out, test_data, batch_size, uses_mask, verbose=False):
+def evaluate_model(val_fn, test_data, batch_size, uses_mask, verbose=False):
     X_test, y_test, mask_test = test_data
     n_class = int(np.max(y_test) + 1)
 
@@ -87,6 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description="Tester un modèle Lasagne sauvegardé en .npz")
     parser.add_argument("--config_path", type=str, default='./config/simple_model.yaml', help="Chemin vers la config YAML utilisée à l'entraînement.")
     parser.add_argument("--model_path", type=str, required=True, help="Chemin vers le fichier .npz du modèle sauvegardé.")
+    parser.add_argument('--verbose', action='store_true', help='Ne pas afficher les infos générales')
     args = parser.parse_args()
 
     CONFIG = import_config(args.config_path)
