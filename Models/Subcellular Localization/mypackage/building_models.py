@@ -1,5 +1,5 @@
 import numpy as np
-from models import FFN, CNN_LSTM, CNN_LSTM_Att, CNN
+from .models import FFN, CNN_LSTM, CNN_LSTM_Att, CNN
 
 def build_model_from_name(model_name,
                           X_train, y_train,
