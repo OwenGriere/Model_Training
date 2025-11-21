@@ -9,8 +9,8 @@ from lasagne import init
 from lasagne.utils import unroll_scan
 from lasagne.layers import MergeLayer
 from lasagne.layers.base import Layer
-from lasagne.layers import helper
-from lasagne.layers import MergeLayer, Layer, InputLayer, DenseLayer, helper, Gate
+from lasagne.layers import get_all_param_values, set_all_param_values
+from lasagne.layers import MergeLayer, Layer
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from lasagne.random import get_rng
 import random
@@ -664,6 +664,36 @@ class LSTMAttentionDecodeFeedbackLayer(MergeLayer):
 			return hid_out
 		else:
 			return weighted_hidden_out
+
+class EarlyStopping:
+    def __init__(self, patience=10, min_delta=0.0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = np.inf
+        self.best_epoch = 0
+        self.epochs_no_improve = 0
+        self.best_params_values = None
+
+    def step(self, current_loss, l_out, epoch):
+        # Cas amélioration significative
+        if current_loss < (self.best_loss - self.min_delta):
+            self.best_loss = current_loss
+            self.best_epoch = epoch
+            self.epochs_no_improve = 0
+            # On sauvegarde un snapshot des paramètres du réseau
+            self.best_params_values = get_all_param_values(l_out)
+            return False
+
+        # Cas pas d'amélioration
+        self.epochs_no_improve += 1
+        if self.epochs_no_improve >= self.patience:
+            return True
+
+        return False
+
+    def restore_best_weights(self, l_out):
+        if self.best_params_values is not None:
+            set_all_param_values(l_out, self.best_params_values)
 
 ################## Adding ##################
 

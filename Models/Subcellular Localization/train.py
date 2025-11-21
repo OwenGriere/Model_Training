@@ -19,7 +19,7 @@ import lasagne
 
 from mypackage.building_models import *
 from mypackage.confusionmatrix import ConfusionMatrix
-from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer, import_config, import_params
+from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer, import_config, import_params, EarlyStopping
 from mypackage.metrics_mc import gorodkin, IC
 from mypackage.plotting import *
 
@@ -42,7 +42,7 @@ def save_model(params, path):
 
 def train_model(ID, model_name, 
                 train_data,
-                test_data=None,
+                val_data=None,
                 batch_size=32,
                 num_epochs=20,
                 lr=0.001,
@@ -57,18 +57,18 @@ def train_model(ID, model_name,
                 min_delta=0.0):
 
     X_train, y_train, mask_train = train_data
-    if test_data is not None:
-        X_test, y_test, mask_test = test_data
+    if val_data is not None:
+        X_val, y_val, mask_val = val_data
     else:
-        X_test = y_test = mask_test = None
+        X_val = y_val = mask_val = None
 
     seq_len = X_train.shape[1]
     n_feat = X_train.shape[2]
     n_class = int(np.max(y_train) + 1)
     if verbose:
         tqdm.write(f"[INFO] Train shape: {X_train.shape}, n_class: {n_class}")
-        if X_test is not None:
-            tqdm.write(f"[INFO] Test shape: {X_test.shape}, n_class: {n_class}")
+        if X_val is not None:
+            tqdm.write(f"[INFO] Test shape: {X_val.shape}, n_class: {n_class}")
 
     # Pour les models utilisant un mask
     uses_mask = model_name in ['CNN-LSTM', 'CNN-LSTM-Attention']
@@ -89,34 +89,32 @@ def train_model(ID, model_name,
 
     train_losses = []
     val_losses = []
-    best_val_loss = np.inf
-    best_epoch = 0
-    epochs_no_improve = 0
     cf_val = None
-    best_params_values = None 
 
-    with tqdm(total=num_epochs, desc=f"[TRAINING] ID={ID} | {model_name}", ncols=150) as pbar:
+    stopper = None
+    if early_stopping:
+        stopper = EarlyStopping(patience=patience, min_delta=min_delta)
         
-        pbar.set_postfix({
-                "bs": batch_size,
-                "lr": lr,
-                "hid": n_hid,
-                "filt": n_filt,
-                "drop": drop_prob
-            })
-        
-        for epoch in range(1, num_epochs + 1):
-            # === TRAINING du model === #
+    for epoch in range(1, num_epochs + 1):
+        tqdm.write([f'[EPOCH {epoch}/{num_epochs}] {model_name} | \
+                        bs: {batch_size} | lr: {lr} | hid: {n_hid} | \
+                            filt: {n_filt} |drop_out: {drop_prob}'])
+            
+        # === TRAINING du model === #
 
-            train_err = 0.0
-            train_batches = 0
-            confusion_train = ConfusionMatrix(n_class)
+        train_err = 0.0
+        train_batches = 0
+        confusion_train = ConfusionMatrix(n_class)
 
-            for inputs, targets, in_masks in iterate_minibatches(
-                X_train, y_train, mask_train,
-                batchsize=batch_size,
-                shuffle=True,
-                sort_len=uses_mask):
+        train_iter = list(iterate_minibatches(
+        X_train, y_train, mask_train,
+        batchsize=batch_size,
+        shuffle=False,
+        sort_len=uses_mask
+        ))
+
+        with tqdm(total=len(train_iter), desc=f"[TRAINING] {model_name}", ncols=90) as pbar:
+            for inputs, targets, in_masks in train_iter:
 
                 inputs = inputs.astype('float32')
                 targets = targets.astype('int32')
@@ -137,18 +135,21 @@ def train_model(ID, model_name,
             train_acc = confusion_train.accuracy()
             cf_train = confusion_train.ret_mat()
 
-            # ===  PHASE TEST / VALIDATION ===
+            # ===  PHASE VALIDATION ===
             
-            if X_test is not None:
-                val_err = 0.0
-                val_batches = 0
-                confusion_valid = ConfusionMatrix(n_class)
+        if X_val is not None:
+            val_err = 0.0
+            val_batches = 0
+            confusion_valid = ConfusionMatrix(n_class)
 
-                for inputs, targets, in_masks in iterate_minibatches(
-                    X_test, y_test, mask_test,
-                    batchsize=batch_size,
-                    shuffle=False,
-                    sort_len=False):
+            val_iter = list(iterate_minibatches(
+                X_val, y_val, mask_val,
+                batchsize=batch_size,
+                shuffle=False,
+                sort_len=False
+                ))
+            with tqdm(total=len(train_iter), desc=f"[VALIDATION] {model_name}", ncols=90) as pbar:
+                for inputs, targets, in_masks in val_iter:
                     inputs = inputs.astype('float32')
                     targets = targets.astype('int32')
 
@@ -177,39 +178,38 @@ def train_model(ID, model_name,
                     )
                 # === EARLY-STOPPING === #
                 if early_stopping:
-                    if val_loss < (best_val_loss - min_delta):
-                        best_val_loss = val_loss
-                        best_params_values = lasagne.layers.get_all_param_values(l_out)
-                        best_epoch = epoch
-                        epochs_no_improve = 0
+                    stop_now = stopper.step(val_loss, l_out, epoch)
+                    if stop_now:
+                        if verbose or all_verbose:
+                            tqdm.write(
+                                f"[EARLY STOPPING] Stop at epoch {epoch}. "
+                                f"Best epoch = {stopper.best_epoch}, best val_loss = {stopper.best_loss:.6f}\n"
+                            )
+                        pbar.update(1)
+                        break
+                pbar.update(1)
 
-                    else:
-                        epochs_no_improve += 1
+        else:
+            # === Pas de validation === #
+            if all_verbose:
+                tqdm.write(
+                        f"Epoch {epoch:02d}/{num_epochs} | "
+                        f"train_loss {train_loss:.6f} | train_acc {train_acc*100:.2f}%"
+                    )
+                tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
+                tqdm.write("  validation Gorodkin:\t{:.2f}".format(gorodkin(cf_val)))
+                tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
+                tqdm.write("  validation IC:\t{:.2f}".format(IC(cf_val)))
 
-                        if epochs_no_improve >= patience:
-                            if verbose or all_verbose:
-                                tqdm.write(
-                                    f"[EARLY STOPPING] Stopping at epoch {epoch} "
-                                    f"(best epoch = {best_epoch}, best val_loss = {best_val_loss:.6f})\n"
-                                )
-                            pbar.update(1)
-                            break
+            if save_params_frame is not None:
+                g_train = gorodkin(cf_train)
+                g_val   = gorodkin(cf_val)
+                ic_train = IC(cf_train)
+                ic_val   = IC(cf_val)
 
-                if all_verbose:
-                    tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
-                    tqdm.write("  validation Gorodkin:\t{:.2f}".format(gorodkin(cf_val)))
-                    tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
-                    tqdm.write("  validation IC:\t{:.2f}".format(IC(cf_val)))
+                # confusion_score = g_val
 
-                if save_params_frame is not None:
-                    g_train = gorodkin(cf_train)
-                    g_val   = gorodkin(cf_val)
-                    ic_train = IC(cf_train)
-                    ic_val   = IC(cf_val)
-
-                    # === confusion_score = g_val
-
-                    save_params(
+                save_params(
                         save_params_frame,
                         ID=f"{ID}_{model_name}_{epoch}",
                         model_name=model_name,
@@ -232,18 +232,19 @@ def train_model(ID, model_name,
                         gorodkin_val=g_val,
                         IC_train=ic_train,
                         IC_val=ic_val
-                    )
-            else:
-                if all_verbose:
-                    tqdm.write(
-                        f"Epoch {epoch:02d}/{num_epochs} | "
-                        f"train_loss {train_loss:.6f} | train_acc {train_acc*100:.2f}%"
-                    )
+                )
+            if early_stopping:
+                stop_now = stopper.step(train_loss, l_out, epoch)
+                if stop_now:
+                    if verbose or all_verbose:
+                        tqdm.write(
+                                f"[EARLY STOPPING] Stop at epoch {epoch}. "
+                                f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
+                            )
+                    break
 
-            pbar.update(1)
-
-    if early_stopping and best_params_values is not None:
-        lasagne.layers.set_all_param_values(l_out, best_params_values)
+    if early_stopping:
+        stopper.restore_best_weights(l_out)
 
     history = {
         'train_losses': train_losses,
