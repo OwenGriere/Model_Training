@@ -96,9 +96,10 @@ def train_model(ID, model_name,
         stopper = EarlyStopping(patience=patience, min_delta=min_delta)
         
     for epoch in range(1, num_epochs + 1):
-        tqdm.write([f'[EPOCH {epoch}/{num_epochs}] {model_name} | \
-                        bs: {batch_size} | lr: {lr} | hid: {n_hid} | \
-                            filt: {n_filt} |drop_out: {drop_prob}'])
+        tqdm.write(
+            f"[EPOCH {epoch}/{num_epochs}] {model_name} | "
+            f"bs={batch_size} | lr={lr} | hid={n_hid} | filt={n_filt} | drop={drop_prob}"
+        )
             
         # === TRAINING du model === #
 
@@ -109,7 +110,7 @@ def train_model(ID, model_name,
         train_iter = list(iterate_minibatches(
         X_train, y_train, mask_train,
         batchsize=batch_size,
-        shuffle=False,
+        shuffle=True,
         sort_len=uses_mask
         ))
 
@@ -129,13 +130,14 @@ def train_model(ID, model_name,
                 train_batches += 1
                 pred_labels = np.argmax(preds, axis=-1)
                 confusion_train.batch_add(targets, pred_labels)
+                pbar.update(1)
 
-            train_loss = train_err / max(1, train_batches)
-            train_losses.append(train_loss)
-            train_acc = confusion_train.accuracy()
-            cf_train = confusion_train.ret_mat()
+        train_loss = train_err / max(1, train_batches)
+        train_losses.append(train_loss)
+        train_acc = confusion_train.accuracy()
+        cf_train = confusion_train.ret_mat()
 
-            # ===  PHASE VALIDATION ===
+        # ===  PHASE VALIDATION ===
             
         if X_val is not None:
             val_err = 0.0
@@ -148,7 +150,8 @@ def train_model(ID, model_name,
                 shuffle=False,
                 sort_len=False
                 ))
-            with tqdm(total=len(train_iter), desc=f"[VALIDATION] {model_name}", ncols=90) as pbar:
+            
+            with tqdm(total=len(val_iter), desc=f"[VALIDATION] {model_name}", ncols=90) as pbar:
                 for inputs, targets, in_masks in val_iter:
                     inputs = inputs.astype('float32')
                     targets = targets.astype('int32')
@@ -165,47 +168,59 @@ def train_model(ID, model_name,
                     val_batches += 1
                     pred_labels = np.argmax(preds, axis=-1)
                     confusion_valid.batch_add(targets, pred_labels)
+                    pbar.update(1)
 
-                val_loss = val_err / max(1, val_batches)
-                val_losses.append(val_loss)
-                val_acc = confusion_valid.accuracy()
-                cf_val = confusion_valid.ret_mat()
-                if all_verbose:
-                    tqdm.write(
+            val_loss = val_err / max(1, val_batches)
+            val_losses.append(val_loss)
+            val_acc = confusion_valid.accuracy()
+            cf_val = confusion_valid.ret_mat()
+            if all_verbose:
+                tqdm.write(
                         f"Epoch {epoch:02d}/{num_epochs} | "
                         f"train_loss {train_loss:.6f} | test_loss {val_loss:.6f} | "
                         f"train_acc {train_acc*100:.2f}% | test_acc {val_acc*100:.2f}%"
-                    )
-                # === EARLY-STOPPING === #
-                if early_stopping:
-                    stop_now = stopper.step(val_loss, l_out, epoch)
-                    if stop_now:
-                        if verbose or all_verbose:
-                            tqdm.write(
+                )
+            # === EARLY-STOPPING === #
+            if early_stopping:
+                stop_now = stopper.step(val_loss, l_out, epoch)
+                if stop_now:
+                    if verbose or all_verbose:
+                        tqdm.write(
                                 f"[EARLY STOPPING] Stop at epoch {epoch}. "
                                 f"Best epoch = {stopper.best_epoch}, best val_loss = {stopper.best_loss:.6f}\n"
-                            )
-                        pbar.update(1)
-                        break
-                pbar.update(1)
+                        )
+                    break
 
         else:
             # === Pas de validation === #
+            val_loss = np.nan
+            val_losses.append(np.nan)
+            val_acc = np.nan
+            cf_val = None
             if all_verbose:
                 tqdm.write(
                         f"Epoch {epoch:02d}/{num_epochs} | "
                         f"train_loss {train_loss:.6f} | train_acc {train_acc*100:.2f}%"
                     )
                 tqdm.write("  training Gorodkin:\t{:.2f}".format(gorodkin(cf_train)))
-                tqdm.write("  validation Gorodkin:\t{:.2f}".format(gorodkin(cf_val)))
                 tqdm.write("  training IC:\t\t{:.2f}".format(IC(cf_train)))
-                tqdm.write("  validation IC:\t{:.2f}".format(IC(cf_val)))
-
-            if save_params_frame is not None:
+            if early_stopping:
+                stop_now = stopper.step(train_loss, l_out, epoch)
+                if stop_now:
+                    if verbose or all_verbose:
+                        tqdm.write(
+                                f"[EARLY STOPPING] Stop at epoch {epoch}. "
+                                f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
+                            )
+                    break
+        
+        if save_params_frame is not None:
                 g_train = gorodkin(cf_train)
-                g_val   = gorodkin(cf_val)
                 ic_train = IC(cf_train)
-                ic_val   = IC(cf_val)
+
+                g_val   = gorodkin(cf_val) if X_val is not None else None
+                ic_val   = IC(cf_val) if X_val is not None else None
+
 
                 # confusion_score = g_val
 
@@ -233,15 +248,6 @@ def train_model(ID, model_name,
                         IC_train=ic_train,
                         IC_val=ic_val
                 )
-            if early_stopping:
-                stop_now = stopper.step(train_loss, l_out, epoch)
-                if stop_now:
-                    if verbose or all_verbose:
-                        tqdm.write(
-                                f"[EARLY STOPPING] Stop at epoch {epoch}. "
-                                f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
-                            )
-                    break
 
     if early_stopping:
         stopper.restore_best_weights(l_out)
@@ -249,10 +255,10 @@ def train_model(ID, model_name,
     history = {
         'train_losses': train_losses,
         'val_losses': val_losses,
-        'cf_val': cf_val,
+        'cf_val': cf_val         if X_val is not None else None,
         'cf_train': cf_train,
         'train_acc':train_acc,
-        'val_acc': val_acc
+        'val_acc': val_acc       if X_val is not None else None
     }
 
     return l_out, history
@@ -265,7 +271,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
     l_out, history = train_model(ID,
         model_name=model_name,
         train_data=train_data,
-        test_data=test_data,
+        val_data=test_data,
         batch_size=batch_size,
         num_epochs=num_epochs,
         lr=lr,
