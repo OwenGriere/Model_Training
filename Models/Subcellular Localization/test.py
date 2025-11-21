@@ -36,25 +36,31 @@ def evaluate_model(val_fn, l_out, test_data, batch_size, uses_mask, verbose=Fals
     test_batches = 0
     confusion_test = ConfusionMatrix(n_class)
 
-    for inputs, targets, in_masks in iterate_minibatches(
+    test_iter = list(iterate_minibatches(
         X_test, y_test, mask_test,
         batchsize=batch_size,
         shuffle=False,
-        sort_len=False):
+        sort_len=False
+    ))
 
-        inputs = inputs.astype("float32")
-        targets = targets.astype("int32")
+    with tqdm(total=len(test_iter), desc="[TEST] Evaluation du model", ncols=120) as pbar:
+        for inputs, targets, in_masks in test_iter:
 
-        if uses_mask and in_masks is not None:
-            in_masks = in_masks.astype("float32")
-            loss_batch, preds = val_fn(inputs, targets, in_masks)
-        else:
-            loss_batch, preds = val_fn(inputs, targets)
+            inputs = inputs.astype("float32")
+            targets = targets.astype("int32")
 
-        test_err += float(loss_batch)
-        test_batches += 1
-        pred_labels = np.argmax(preds, axis=-1)
-        confusion_test.batch_add(targets, pred_labels)
+            if uses_mask and in_masks is not None:
+                in_masks = in_masks.astype("float32")
+                loss_batch, preds = val_fn(inputs, targets, in_masks)
+            else:
+                loss_batch, preds = val_fn(inputs, targets)
+
+            test_err += float(loss_batch)
+            test_batches += 1
+            pred_labels = np.argmax(preds, axis=-1)
+            confusion_test.batch_add(targets, pred_labels)
+
+            pbar.update(1)
 
     test_loss = test_err / max(1, test_batches)
     test_acc = confusion_test.accuracy()
