@@ -99,9 +99,9 @@ def main():
     y_train = train_npz["y_train"]
 
     test_npz = np.load(CONFIG["dataset"]["test_path"])
-    X_test = test_npz["X_val"]
-    y_test = test_npz["y_val"]
-    mask_test = test_npz["mask_val"]
+    X_test = test_npz["X_test"]
+    y_test = test_npz["y_test"]
+    mask_test = test_npz["mask_test"]
     test_data = (X_test, y_test, mask_test)
 
     uses_mask = CONFIG["model"]["name"] in ["CNN-LSTM", "CNN-LSTM-Attention"]
