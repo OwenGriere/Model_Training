@@ -186,8 +186,6 @@ def train_model(ID, model_name,
                                 f"[EARLY STOPPING] Stop at epoch {epoch}. "
                                 f"Best epoch = {stopper.best_epoch}, best val_loss = {stopper.best_loss:.6f}\n"
                         )
-                    if args.multimodel:
-                        print("\033[2K\033[1G", end="", flush=True)
                     break
 
         else:
@@ -211,8 +209,6 @@ def train_model(ID, model_name,
                                 f"[EARLY STOPPING] Stop at epoch {epoch}. "
                                 f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
                             )
-                    if args.multimodel:
-                        print("\033[2K\033[1G", end="", flush=True)
                     break
                 # On choisit la loss à surveiller
         monitored_loss = val_loss if X_val is not None else train_loss
@@ -251,8 +247,6 @@ def train_model(ID, model_name,
                     IC_train=ic_train,
                     IC_val=ic_val
                 )
-        if args.multimodel:
-            print("\033[2K\033[1G", end="", flush=True)
 
     if save_params_frame is not None and best_record is not None:
         save_params(save_params_frame, **best_record)      
@@ -404,7 +398,7 @@ if __name__ == '__main__':
                         train_data,val_data,
                         early_stop=early_stop, patience=patience, min_delta=min_delta
                     )
-                    file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
+                    file_path = os.path.join(save_path, f"{ID}_{model_name}.npz")
                     save_model(params, file_path)
                     if args.verbose:
                         tqdm.write("[INFO] Model saved")

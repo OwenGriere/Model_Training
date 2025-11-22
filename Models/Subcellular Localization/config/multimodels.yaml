@@ -1,7 +1,7 @@
 ID: "001"
 
 model:
-  name: ["CNN-LSTM","CNN"]
+  name: ["CNN"]
   n_hid: [64, 128]
   n_filt: [32, 64]
   drop_prob: [0.3, 0.5] 
