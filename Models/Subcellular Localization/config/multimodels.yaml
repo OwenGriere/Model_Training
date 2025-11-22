@@ -1,7 +1,7 @@
 ID: "001"
 
 model:
-  name: ["CNN-LSTM", "CNN-LSTM-Attention"]
+  name: ["CNN-LSTM","CNN"]
   n_hid: [64, 128]
   n_filt: [32, 64]
   drop_prob: [0.3, 0.5] 
@@ -14,6 +14,7 @@ Early_stopping:
   perform: True
   patience: 3
   min_delta: 1e-4
+
 dataset:
   train_path: "data/reduced_train.npz"
   test_path:  "data/reduced_val.npz"
