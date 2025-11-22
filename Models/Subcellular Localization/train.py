@@ -403,6 +403,8 @@ if __name__ == '__main__':
                     )
                     file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
                     save_model(params, file_path)
+                    if args.verbose:
+                        tqdm.write("[INFO] Model saved")
 
                     ID = str(int(ID) + 1).zfill(len(ID))
                     pbar.update(1)
@@ -431,6 +433,8 @@ if __name__ == '__main__':
             
             file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
             save_model(params, file_path)
+            if args.verbose:
+                tqdm.write("[INFO] Model saved")
         else:
             _ = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
