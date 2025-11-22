@@ -295,9 +295,6 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         tqdm.write(f"[INFO] Parameters saved\n")
 
     if not args.no_plot:
-        os.makedirs("Figures", exist_ok=True)
-        plt.ioff()
-
         # === Training curve === #
         plot_training_curves(
             train_losses=history['train_losses'],
@@ -310,7 +307,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         )
         
         # === Confusion matrix === #
-        cf = history['cf_val'] if not None else history['cf_train']
+        cf = history['cf_val'] if history['cf_val'] is not None else history['cf_train']
         classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
            'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
         plot_confusion_matrix(

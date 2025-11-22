@@ -2,10 +2,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-
+import os
 ##################################################### PLotting #####################################################
 
 def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=None, model_name="Model", verbose=False,  ID=None, test=False):
+    plt.ioff()
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
     plt.plot(train_losses, label='Train loss')
@@ -26,15 +27,18 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
         plt.title(f"Accuracy - {model_name}")
         plt.grid(True)
         plt.legend()
+    
+    txt=''
     if test:
         txt='test_'
     plt.tight_layout()
+    os.makedirs(f"Figures/{model_name}_{ID}", exist_ok=True)
     loss_path = f"Figures/{model_name}_{ID}/{txt}loss_and_accuracy.png"
     plt.savefig(loss_path)
     plt.close()
 
 def plot_confusion_matrix(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True, verbose=False, ID=None, test=False):
-
+    plt.ioff()
     n_class = cf_matrix.shape[0]
     counts_per_class = cf_matrix.sum(axis=1)
 
@@ -61,8 +65,12 @@ def plot_confusion_matrix(cf_matrix, classes=None, title="Matrice de confusion",
             plt.text(j, i, value,
                      horizontalalignment="center",
                      color="white" if cf_matrix[i, j] > thresh else "black")
+            
+    txt=""
     if test:
         txt='test_'
+    
+    os.makedirs(f"Figures/{model_name}_{ID}", exist_ok=True)
     plt.ylabel("Label réel")
     plt.xlabel("Label prédit")
     plt.tight_layout()
