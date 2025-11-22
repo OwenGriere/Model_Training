@@ -87,7 +87,10 @@ def train_model(ID, model_name,
     stopper = None
     if early_stopping:
         stopper = EarlyStopping(patience=patience, min_delta=min_delta)
-        
+    
+    best_score = np.inf
+    best_record = None
+
     for epoch in range(1, num_epochs + 1):
         tqdm.write(
             f"[EPOCH {epoch}/{num_epochs}] {model_name} | "
@@ -208,41 +211,46 @@ def train_model(ID, model_name,
                                 f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
                             )
                     break
+                # On choisit la loss à surveiller
+        monitored_loss = val_loss if X_val is not None else train_loss
+
         
         if save_params_frame is not None:
+            if monitored_loss < best_score - min_delta:
+                best_score = monitored_loss
+
                 g_train = gorodkin(cf_train)
                 ic_train = IC(cf_train)
 
-                g_val   = gorodkin(cf_val) if X_val is not None else None
-                ic_val   = IC(cf_val) if X_val is not None else None
+                g_val = gorodkin(cf_val) if X_val is not None else None
+                ic_val = IC(cf_val) if X_val is not None else None
 
-
-                # confusion_score = g_val
-
-                save_params(
-                        save_params_frame,
-                        ID=f"{ID}_{model_name}_{epoch}",
-                        model_name=model_name,
-                        epoch=epoch,
-                        batch_size=batch_size,
-                        lr=lr,
-                        n_hid=n_hid,
-                        n_filt=n_filt if model_name != 'FFN' else np.nan,
-                        drop_prob=drop_prob,
-                        seq_len=seq_len,
-                        n_feat=n_feat,
-                        n_class=n_class,
-                        uses_mask=uses_mask,
-                        attention=(model_name == 'CNN-LSTM-Attention'),
-                        train_loss=train_loss,
-                        val_loss=val_loss,
-                        train_acc=train_acc,
-                        val_acc=val_acc,
-                        gorodkin_train=g_train,
-                        gorodkin_val=g_val,
-                        IC_train=ic_train,
-                        IC_val=ic_val
+                best_record = dict(
+                    ID=f"{ID}_{model_name}_{epoch}",
+                    model_name=model_name,
+                    epoch=epoch,
+                    batch_size=batch_size,
+                    lr=lr,
+                    n_hid=n_hid,
+                    n_filt=n_filt if model_name != 'FFN' else np.nan,
+                    drop_prob=drop_prob,
+                    seq_len=seq_len,
+                    n_feat=n_feat,
+                    n_class=n_class,
+                    uses_mask=uses_mask,
+                    attention=(model_name == 'CNN-LSTM-Attention'),
+                    train_loss=train_loss,
+                    val_loss=val_loss,
+                    train_acc=train_acc,
+                    val_acc=val_acc,
+                    gorodkin_train=g_train,
+                    gorodkin_val=g_val,
+                    IC_train=ic_train,
+                    IC_val=ic_val
                 )
+
+    if save_params_frame is not None and best_record is not None:
+        save_params(save_params_frame, **best_record)      
 
     if early_stopping:
         stopper.restore_best_weights(l_out)
@@ -369,7 +377,7 @@ if __name__ == '__main__':
 
     early_stop = CONFIG['Early_stopping']['perform']
     patience = int(CONFIG['Early_stopping']['patience'])
-    min_delta = int(CONFIG['Early_stopping']['min_delta'])
+    min_delta = float(CONFIG['Early_stopping']['min_delta'])
     # === Multimodel === #
 
     if args.multimodel:
@@ -429,5 +437,3 @@ if __name__ == '__main__':
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
                 train_data, val_data , early_stop=early_stop, patience=patience, min_delta=min_delta)
 
-
-    

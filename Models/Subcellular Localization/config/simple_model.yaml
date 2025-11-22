@@ -1,6 +1,6 @@
 ID: '101'
 model:
-  name: FFN
+  name: CCN-LSTM
   n_hid: 64
   n_filt: 64
   drop_prob: 0.3
@@ -8,12 +8,12 @@ model:
 training:
   batch_size: 32
   learning_rate: 0.001
-  epochs: 1
+  epochs: 50
 
 Early_stopping:
   perform: true
   patience: 3
-  min_delta: 1e-4
+  min_delta: 1e-3
 
 dataset:
   train_path: "data/train.npz" # "data/reduced_train.npz"

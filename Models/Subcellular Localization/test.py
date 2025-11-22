@@ -8,7 +8,6 @@ import numpy as np
 from tqdm import tqdm
 
 import lasagne
-
 from mypackage.building_models import *
 from mypackage.confusionmatrix import ConfusionMatrix
 from mypackage.utils import iterate_minibatches, import_config, LSTMAttentionDecodeFeedbackLayer
