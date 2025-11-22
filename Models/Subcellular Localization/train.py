@@ -92,10 +92,11 @@ def train_model(ID, model_name,
     best_record = None
 
     for epoch in range(1, num_epochs + 1):
-        tqdm.write(
+        if not args.multimodel:
+            tqdm.write(
             f"[EPOCH {epoch}/{num_epochs}]\t{model_name} | "
             f"bs={batch_size} | lr={lr} | hid={n_hid} | filt={n_filt} | drop={drop_prob}"
-        )
+            )
             
         # === TRAINING du model === #
 

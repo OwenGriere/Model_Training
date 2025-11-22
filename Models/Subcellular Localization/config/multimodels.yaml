@@ -17,4 +17,4 @@ Early_stopping:
 
 dataset:
   train_path: "data/reduced_train.npz"
-  test_path:  "data/reduced_val.npz"
+  val_path:  "data/reduced_val.npz"
