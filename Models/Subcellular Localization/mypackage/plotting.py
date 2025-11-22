@@ -5,7 +5,7 @@ import numpy as np
 import os
 ##################################################### PLotting #####################################################
 
-def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=None, model_name="Model", verbose=False,  ID=None, test=False):
+def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=None, model_name="Model", verbose=False, test=False):
     plt.ioff()
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
@@ -32,12 +32,12 @@ def plot_training_curves(train_losses, val_losses, train_accs=None, val_accs=Non
     if test:
         txt='test_'
     plt.tight_layout()
-    os.makedirs(f"Figures/{model_name}_{ID}", exist_ok=True)
-    loss_path = f"Figures/{model_name}_{ID}/{txt}loss_and_accuracy.png"
+    os.makedirs(f"Figures/{model_name}", exist_ok=True)
+    loss_path = f"Figures/{model_name}/{txt}loss_and_accuracy.png"
     plt.savefig(loss_path)
     plt.close()
 
-def plot_confusion_matrix(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True, verbose=False, ID=None, test=False):
+def plot_confusion_matrix(cf_matrix, classes=None, title="Matrice de confusion", model_name="Model", Norm=True, verbose=False, test=False):
     plt.ioff()
     n_class = cf_matrix.shape[0]
     counts_per_class = cf_matrix.sum(axis=1)
@@ -70,10 +70,10 @@ def plot_confusion_matrix(cf_matrix, classes=None, title="Matrice de confusion",
     if test:
         txt='test_'
     
-    os.makedirs(f"Figures/{model_name}_{ID}", exist_ok=True)
+    os.makedirs(f"Figures/{model_name}", exist_ok=True)
     plt.ylabel("Label réel")
     plt.xlabel("Label prédit")
     plt.tight_layout()
-    cf_path = f"Figures/{model_name}_{ID}/{txt}confusion.png"
+    cf_path = f"Figures/{model_name}/{txt}confusion.png"
     plt.savefig(cf_path)
     plt.close()

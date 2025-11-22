@@ -308,8 +308,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
             train_accs=history.get('train_accs', None),
             val_accs=history.get('val_accs', None),
             model_name=f'{model_name}_{ID}',
-            verbose=args.all_verbose,
-            ID=ID
+            verbose=args.all_verbose
         )
         
         # === Confusion matrix === #
@@ -321,8 +320,7 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
                 classes=classes,
                 title=f"Matrice de confusion - {model_name}",
                 model_name=f'{model_name}_{ID}',
-                verbose=args.all_verbose,
-                ID=ID
+                verbose=args.all_verbose
         )
     return lasagne.layers.get_all_params(l_out) 
 

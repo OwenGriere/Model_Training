@@ -34,7 +34,7 @@ def evaluate_model(val_fn, test_data, batch_size, uses_mask, verbose=False):
         sort_len=False
     ))
 
-    with tqdm(total=len(test_iter), desc="[TEST] Evaluation du model", ncols=120) as pbar:
+    with tqdm(total=len(test_iter), desc="[TEST] Evaluation du model", ncols=90) as pbar:
         for inputs, targets, in_masks in test_iter:
 
             inputs = inputs.astype("float32")
@@ -82,6 +82,7 @@ def main():
     args = parser.parse_args()
 
     CONFIG = import_config(args.config_path)
+
     if CONFIG["dataset"]["test_path"] is None:
         raise ValueError("Aucun test_path dans la config. Impossible d'évaluer.")
 
@@ -109,7 +110,7 @@ def main():
         drop_prob=CONFIG["model"]["drop_prob"]
     )
 
-    tqdm.write(f"[INFO] Modèle {CONFIG["model"]["name"]} reconstruit.")
+    tqdm.write(f"[INFO] Modèle {CONFIG['model']['name']} reconstruit.")
 
     # Chargement des poids .npz et injection dans le réseau
     weights = load_npz_weights(args.model_path)
@@ -117,33 +118,30 @@ def main():
     tqdm.write(f"[INFO] Poids chargés depuis {args.model_path}.")
 
     # Évaluation
-    history = evaluate_model(val_fn, l_out, test_data, CONFIG["training"]["batch_size"], uses_mask, verbose=args.verbose)
-
-    os.makedirs("Figures", exist_ok=True)
+    history = evaluate_model(val_fn, test_data, CONFIG["training"]["batch_size"], uses_mask, verbose=args.verbose)
 
     # === Training curve === #
+    """
     plot_training_curves(
-            train_losses=history['train_losses'],
-            val_losses=history['val_losses'],
-            train_accs=history.get('train_accs', None),
-            val_accs=history.get('val_accs', None),
+            train_losses=history['loss'],
+            val_losses=history['loss'],
+            train_accs=history.get('accuracy', None),
+            val_accs=history.get('accuracy', None),
             model_name=f'{CONFIG["model"]["name"]}_test_{CONFIG["ID"]}',
             verbose=args.verbose,
-            ID=CONFIG['ID'],
             test=True
         )
-        
+    """
     # === Confusion matrix === #
-    cf = history['cf_test']
+    cf = history['cf']
     classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
            'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
     plot_confusion_matrix(
                 cf_matrix=cf,
                 classes=classes,
-                title=f"Matrice de confusion - {CONFIG["model"]["name"]}",
-                model_name=f'{CONFIG["model"]["name"]}_test_{CONFIG["ID"]}',
+                title=f"Matrice de confusion - {CONFIG['model']['name']}",
+                model_name=f"{CONFIG['model']['name']}_test_{CONFIG['ID']}",
                 verbose=args.verbose,
-                ID=CONFIG['ID'],
                 test=True
         )
 
