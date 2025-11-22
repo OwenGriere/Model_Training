@@ -132,6 +132,7 @@ def train_model(ID, model_name,
                 confusion_train.batch_add(targets, pred_labels)
                 pbar.update(1)
             pbar.clear()
+            pbar.close()
 
         train_loss = train_err / max(1, train_batches)
         train_losses.append(train_loss)
@@ -171,6 +172,7 @@ def train_model(ID, model_name,
                     confusion_valid.batch_add(targets, pred_labels)
                     pbar.update(1)
                 pbar.clear()
+                pbar.close()
 
             val_loss = val_err / max(1, val_batches)
             val_losses.append(val_loss)
