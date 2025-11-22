@@ -110,7 +110,7 @@ def train_model(ID, model_name,
         sort_len=uses_mask
         ))
 
-        with tqdm(total=len(train_iter), desc=f"[TRAINING] Traited batch", ncols=90) as pbar:
+        with tqdm(total=len(train_iter), desc=f"[TRAINING] Traited batch", leave=False, ncols=90) as pbar:
             for inputs, targets, in_masks in train_iter:
 
                 inputs = inputs.astype('float32')
@@ -127,7 +127,6 @@ def train_model(ID, model_name,
                 pred_labels = np.argmax(preds, axis=-1)
                 confusion_train.batch_add(targets, pred_labels)
                 pbar.update(1)
-            pbar.clear()
 
         train_loss = train_err / max(1, train_batches)
         train_losses.append(train_loss)
@@ -148,7 +147,7 @@ def train_model(ID, model_name,
                 sort_len=False
                 ))
             
-            with tqdm(total=len(val_iter), desc=f"[VALIDATION] Traited batch", ncols=90) as pbar:
+            with tqdm(total=len(val_iter), desc=f"[VALIDATION] Traited batch", leave=False, ncols=90) as pbar:
                 for inputs, targets, in_masks in val_iter:
                     inputs = inputs.astype('float32')
                     targets = targets.astype('int32')
@@ -166,7 +165,6 @@ def train_model(ID, model_name,
                     pred_labels = np.argmax(preds, axis=-1)
                     confusion_valid.batch_add(targets, pred_labels)
                     pbar.update(1)
-                pbar.clear()
 
             val_loss = val_err / max(1, val_batches)
             val_losses.append(val_loss)
@@ -187,6 +185,8 @@ def train_model(ID, model_name,
                                 f"[EARLY STOPPING] Stop at epoch {epoch}. "
                                 f"Best epoch = {stopper.best_epoch}, best val_loss = {stopper.best_loss:.6f}\n"
                         )
+                    if args.multimodel:
+                        print("\033[2K\033[1G", end="", flush=True)
                     break
 
         else:
@@ -210,6 +210,8 @@ def train_model(ID, model_name,
                                 f"[EARLY STOPPING] Stop at epoch {epoch}. "
                                 f"Best epoch = {stopper.best_epoch}, best train_loss = {stopper.best_loss:.6f}\n"
                             )
+                    if args.multimodel:
+                        print("\033[2K\033[1G", end="", flush=True)
                     break
                 # On choisit la loss à surveiller
         monitored_loss = val_loss if X_val is not None else train_loss
@@ -248,6 +250,8 @@ def train_model(ID, model_name,
                     IC_train=ic_train,
                     IC_val=ic_val
                 )
+        if args.multimodel:
+            print("\033[2K\033[1G", end="", flush=True)
 
     if save_params_frame is not None and best_record is not None:
         save_params(save_params_frame, **best_record)      
@@ -393,7 +397,7 @@ if __name__ == '__main__':
             lrs,n_hids,n_filts,drop_probs))
 
         if args.saving:
-            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
+            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=90) as pbar:
                 for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
 
                     params = main(ID,model_name,batch_size,epochs,
@@ -410,7 +414,7 @@ if __name__ == '__main__':
                     pbar.update(1)
 
         else:
-            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model - ", ncols=150) as pbar:
+            with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model - ", ncols=90) as pbar:
                 for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
 
                     _ = main(ID,model_name,batch_size,epochs,
