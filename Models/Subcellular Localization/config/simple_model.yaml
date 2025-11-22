@@ -1,6 +1,6 @@
 ID: '101'
 model:
-  name: CCN-LSTM
+  name: CNN-LSTM
   n_hid: 64
   n_filt: 64
   drop_prob: 0.3
