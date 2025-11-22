@@ -114,7 +114,7 @@ def train_model(ID, model_name,
         sort_len=uses_mask
         ))
 
-        with tqdm(total=len(train_iter), desc=f"[TRAINING] {model_name}", ncols=90) as pbar:
+        with tqdm(total=len(train_iter), desc=f"[TRAINING] Traited batch", ncols=90) as pbar:
             for inputs, targets, in_masks in train_iter:
 
                 inputs = inputs.astype('float32')
@@ -153,7 +153,7 @@ def train_model(ID, model_name,
                 sort_len=False
                 ))
             
-            with tqdm(total=len(val_iter), desc=f"[VALIDATION] {model_name}", ncols=90) as pbar:
+            with tqdm(total=len(val_iter), desc=f"[VALIDATION] Traited batch", ncols=90) as pbar:
                 for inputs, targets, in_masks in val_iter:
                     inputs = inputs.astype('float32')
                     targets = targets.astype('int32')
