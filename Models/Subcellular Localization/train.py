@@ -131,6 +131,7 @@ def train_model(ID, model_name,
                 pred_labels = np.argmax(preds, axis=-1)
                 confusion_train.batch_add(targets, pred_labels)
                 pbar.update(1)
+            pbar.clear()
 
         train_loss = train_err / max(1, train_batches)
         train_losses.append(train_loss)
@@ -169,6 +170,7 @@ def train_model(ID, model_name,
                     pred_labels = np.argmax(preds, axis=-1)
                     confusion_valid.batch_add(targets, pred_labels)
                     pbar.update(1)
+                pbar.clear()
 
             val_loss = val_err / max(1, val_batches)
             val_losses.append(val_loss)
@@ -301,19 +303,21 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
             train_accs=history.get('train_accs', None),
             val_accs=history.get('val_accs', None),
             model_name=f'{model_name}_{ID}',
-            verbose=args.all_verbose
+            verbose=args.all_verbose,
+            ID=ID
         )
         
         # === Confusion matrix === #
-        cf_val = history['cf_val']
+        cf = history['cf_val'] if not None else history['cf_train']
         classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
            'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
         plot_confusion_matrix(
-                cf_matrix=cf_val,
+                cf_matrix=cf,
                 classes=classes,
                 title=f"Matrice de confusion - {model_name}",
                 model_name=f'{model_name}_{ID}',
-                verbose=args.all_verbose
+                verbose=args.all_verbose,
+                ID=ID
         )
     return lasagne.layers.get_all_params(l_out) 
 

@@ -138,19 +138,23 @@ def main():
             train_accs=history.get('train_accs', None),
             val_accs=history.get('val_accs', None),
             model_name=f'{CONFIG["model"]["name"]}_test_{CONFIG["ID"]}',
-            verbose=args.verbose
+            verbose=args.verbose,
+            ID=CONFIG['ID'],
+            test=True
         )
         
     # === Confusion matrix === #
-    cf_val = history['cf_val']
+    cf = history['cf_test']
     classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
            'Chloroplast','Golgi apparatus','Lysosome','Vacuole']
     plot_confusion_matrix(
-                cf_matrix=cf_val,
+                cf_matrix=cf,
                 classes=classes,
                 title=f"Matrice de confusion - {CONFIG["model"]["name"]}",
                 model_name=f'{CONFIG["model"]["name"]}_test_{CONFIG["ID"]}',
-                verbose=args.verbose
+                verbose=args.verbose,
+                ID=CONFIG['ID'],
+                test=True
         )
 
 if __name__ == '__main__':
