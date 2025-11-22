@@ -1,25 +1,17 @@
 import os
 import sys
-import yaml
 os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=float32"
 sys.path = [p for p in sys.path if ".local/lib/python3.8/site-packages" not in p]
 import argparse
 import numpy as np
-import pandas as pd
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-import itertools
-import theano
-import theano.tensor as T
 import lasagne
 
 from mypackage.building_models import *
 from mypackage.confusionmatrix import ConfusionMatrix
-from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer, import_config
+from mypackage.utils import iterate_minibatches, import_config, LSTMAttentionDecodeFeedbackLayer
 from mypackage.metrics_mc import gorodkin, IC
 from mypackage.plotting import *
 
@@ -129,7 +121,6 @@ def main():
     history = evaluate_model(val_fn, l_out, test_data, CONFIG["training"]["batch_size"], uses_mask, verbose=args.verbose)
 
     os.makedirs("Figures", exist_ok=True)
-    plt.ioff()
 
     # === Training curve === #
     plot_training_curves(

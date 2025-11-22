@@ -10,6 +10,11 @@ training:
   learning_rate: 0.001
   epochs: 1
 
+Early_stopping:
+  perform: true
+  patience: 3
+  min_delta: 1e-4
+
 dataset:
   train_path: "data/train.npz" # "data/reduced_train.npz"
   val_path: # "data/reduced_val.npz"

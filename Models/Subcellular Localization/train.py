@@ -1,25 +1,18 @@
 import os
 import sys
-import yaml
 os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,optimizer=None,device=cpu,floatX=float32"
 sys.path = [p for p in sys.path if ".local/lib/python3.8/site-packages" not in p]
 import argparse
 import numpy as np
 import pandas as pd
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import itertools
-import theano
-import theano.tensor as T
 import lasagne
 
 from mypackage.building_models import *
 from mypackage.confusionmatrix import ConfusionMatrix
-from mypackage.utils import iterate_minibatches, LSTMAttentionDecodeFeedbackLayer, import_config, import_params, EarlyStopping
+from mypackage.utils import iterate_minibatches, import_config, import_params, EarlyStopping, LSTMAttentionDecodeFeedbackLayer
 from mypackage.metrics_mc import gorodkin, IC
 from mypackage.plotting import *
 
@@ -132,7 +125,6 @@ def train_model(ID, model_name,
                 confusion_train.batch_add(targets, pred_labels)
                 pbar.update(1)
             pbar.clear()
-            pbar.close()
 
         train_loss = train_err / max(1, train_batches)
         train_losses.append(train_loss)
@@ -172,7 +164,6 @@ def train_model(ID, model_name,
                     confusion_valid.batch_add(targets, pred_labels)
                     pbar.update(1)
                 pbar.clear()
-                pbar.close()
 
             val_loss = val_err / max(1, val_batches)
             val_losses.append(val_loss)
@@ -269,7 +260,7 @@ def train_model(ID, model_name,
 
 ##################################################### Main #####################################################
 
-def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, train_data, test_data):
+def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, train_data, test_data, early_stop, patience=None, min_delta=None):
 
     # === Entraînement du modèle choisi === #
     l_out, history = train_model(ID,
@@ -284,7 +275,10 @@ def main(ID, model_name, batch_size, num_epochs, lr, n_hid, n_filt, drop_prob, t
         drop_prob=drop_prob,
         save_params_frame=params_frame,
         verbose=args.verbose,
-        all_verbose=args.all_verbose)
+        all_verbose=args.all_verbose,
+        early_stopping=early_stop,
+        patience=patience,
+        min_delta=min_delta)
     
     if args.verbose or args.all_verbose:
         tqdm.write(f"[INFO] Training finished\n")
@@ -373,6 +367,9 @@ if __name__ == '__main__':
         mask_val = val_npz['mask_val']
         val_data = (X_val, y_val, mask_val)
 
+    early_stop = CONFIG['Early_stopping']['perform']
+    patience = int(CONFIG['Early_stopping']['patience'])
+    min_delta = int(CONFIG['Early_stopping']['min_delta'])
     # === Multimodel === #
 
     if args.multimodel:
@@ -386,14 +383,15 @@ if __name__ == '__main__':
 
         hyper_grid = list(itertools.product(model_names,batch_sizes,epochs_list,
             lrs,n_hids,n_filts,drop_probs))
-        
+
         if args.saving:
             with tqdm(total=len(hyper_grid), desc="[MULTIMODEL] Run for model n°", ncols=150) as pbar:
                 for run_idx, (model_name, batch_size, epochs, lr, n_hid, n_filt, drop_prob) in enumerate(hyper_grid):
 
                     params = main(ID,model_name,batch_size,epochs,
                         lr,n_hid,n_filt,drop_prob,
-                        train_data,val_data
+                        train_data,val_data,
+                        early_stop=early_stop, patience=patience, min_delta=min_delta
                     )
                     file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
                     save_model(params, file_path)
@@ -407,7 +405,8 @@ if __name__ == '__main__':
 
                     _ = main(ID,model_name,batch_size,epochs,
                         lr,n_hid,n_filt,drop_prob,
-                        train_data,val_data
+                        train_data,val_data,
+                        early_stop=early_stop, patience=patience, min_delta=min_delta
                     )
 
                     ID = str(int(ID) + 1).zfill(len(ID))
@@ -420,7 +419,7 @@ if __name__ == '__main__':
             params = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
-                train_data, val_data)
+                train_data, val_data, early_stop=early_stop, patience=patience, min_delta=min_delta)
             
             file_path = os.path.join(save_path, f"{ID}_{CONFIG['model']['name']}.npz")
             save_model(params, file_path)
@@ -428,7 +427,7 @@ if __name__ == '__main__':
             _ = main(ID, CONFIG["model"]["name"], CONFIG["training"]["batch_size"], 
                 CONFIG["training"]["epochs"], CONFIG["training"]["learning_rate"], 
                 CONFIG["model"]["n_hid"], CONFIG["model"]["n_filt"], CONFIG["model"]["drop_prob"],
-                train_data, val_data )
+                train_data, val_data , early_stop=early_stop, patience=patience, min_delta=min_delta)
 
 
     
