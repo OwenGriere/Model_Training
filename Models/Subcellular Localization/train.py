@@ -225,7 +225,7 @@ def train_model(ID, model_name,
                 ic_val = IC(cf_val) if X_val is not None else None
 
                 best_record = dict(
-                    ID=f"{ID}_{model_name}_{epoch}",
+                    ID=f"{ID}_{model_name}",
                     model_name=model_name,
                     epoch=epoch,
                     batch_size=batch_size,
