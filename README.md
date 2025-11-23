@@ -11,6 +11,7 @@ for this project you will use Conda to install this environement or install all 
     cd path_to_repo/
     conda env create -f env.yml --name theno_env
 
-after you can run the train by using train.py and configure the two files contained in config/ : multimodels.yaml and simple_model.yaml
+You can go inside Subcellular Localization to understand how the tool works
+
 
 
