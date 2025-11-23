@@ -120,18 +120,6 @@ def main():
     # Évaluation
     history = evaluate_model(val_fn, test_data, CONFIG["training"]["batch_size"], uses_mask, verbose=args.verbose)
 
-    # === Training curve === #
-    """
-    plot_training_curves(
-            train_losses=history['loss'],
-            val_losses=history['loss'],
-            train_accs=history.get('accuracy', None),
-            val_accs=history.get('accuracy', None),
-            model_name=f'{CONFIG["model"]["name"]}_test_{CONFIG["ID"]}',
-            verbose=args.verbose,
-            test=True
-        )
-    """
     # === Confusion matrix === #
     cf = history['cf']
     classes = ['Nucleus','Cytoplasm','Extracellular','Mitochondrion','Cell membrane','ER',
@@ -139,7 +127,7 @@ def main():
     plot_confusion_matrix(
                 cf_matrix=cf,
                 classes=classes,
-                title=f"Matrice de confusion - {CONFIG['model']['name']}",
+                title=f"Matrice de confusion - {CONFIG['model']['name']} - gorodkin = {gorodkin(cf):.2f}",
                 model_name=f"{CONFIG['model']['name']}_test_{CONFIG['ID']}",
                 verbose=args.verbose,
                 test=True

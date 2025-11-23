@@ -1,10 +1,11 @@
-ID: "033"
+ID: "065"
 
 model:
-  name: ["CNN"]
+  name: ['FFN']
   n_hid: [64, 128]
   n_filt: [32, 64]
-  drop_prob: [0.3, 0.5] 
+  drop_prob: [0.3, 0.5]
+
 training:
   batch_size: [32, 64]
   epochs: 30
