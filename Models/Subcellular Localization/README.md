@@ -1,4 +1,4 @@
-# Subcellular Localization — Documentation complète du pipeline
+# Subcellular Localization
 
 Ce dépôt propose un pipeline complet dédié à l’apprentissage, l’évaluation et l’analyse de modèles de classification de localisation subcellulaire à partir de données séquentielles. Le projet repose sur **Theano** et **Lasagne**, tout en offrant plusieurs architectures de réseaux neuronaux, un mode de recherche d’hyperparamètres, ainsi que des notebooks d’exploration des données.
 
