@@ -6,12 +6,9 @@ Various model of AI in python
 
 A project to generate various models to recognate subcellular biomolecules and/or organelles
 
-for this project you will use Conda to install this environement or install all the packages needed
-
-    cd path_to_repo/
-    conda env create -f env.yml --name theno_env
-
 You can go inside Subcellular Localization to understand how the tool works
 
+## Aquatic Background segmentation
 
+A project to generate an IA capable of segmentate data from aquatic background photo.
 

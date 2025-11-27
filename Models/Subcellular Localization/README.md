@@ -4,7 +4,7 @@ Ce dépôt propose un pipeline complet dédié à l’apprentissage, l’évalua
 
 ---
 
-## 1. Présentation générale
+## Présentation générale
 
 L’objectif est de prédire la localisation subcellulaire d’une protéine à partir d’une représentation séquentielle (embeddings par résidus).  
 Le pipeline inclut :
@@ -18,7 +18,7 @@ Le pipeline inclut :
 
 ---
 
-## 2. Structure du projet
+## Structure de l'outil
 
 ```
 Subcellular Localization/
@@ -40,7 +40,7 @@ Subcellular Localization/
 
 ---
 
-## 3. Installation et environnement
+## Installation et environnement
 
 Le projet utilise **Python 3.8**. L’environnement conda fourni installe Theano, Lasagne et le reste des dépendances.
 
@@ -59,7 +59,7 @@ python -c "import theano, lasagne; print('Environnement opérationnel')"
 
 ---
 
-## 4. Format des données
+## Format des données
 
 Les jeux de données sont fournis au format `.npz` et doivent contenir :
 
@@ -80,7 +80,7 @@ Les masques sont essentiels pour les modèles séquentiels.
 
 ---
 
-## 5. Entraînement d’un modèle
+## Entraînement d’un modèle
 
 L’entraînement standard se fait via `train.py`.
 
@@ -125,7 +125,7 @@ python train.py   --multimodel   --params_path ./params/params.parquet   --savin
 
 ---
 
-## 7. Évaluation d’un modèle sauvegardé
+## Évaluation d’un modèle sauvegardé
 
 Un modèle `.npz` peut être réévalué sur le jeu de test via `test.py`.
 
@@ -141,9 +141,9 @@ python test.py   --config_path ./config/simple_model.yaml   --model_path ./model
 
 ---
 
-## 8. Analyse des résultats
+## Analyse des résultats
 
-### 8.1 Analyse des embeddings
+### Analyse des embeddings
 
 Notebook :
 
@@ -157,7 +157,7 @@ Utilisé pour :
 - étudier les embeddings,
 - visualiser les représentations internes d’un modèle.
 
-### 8.2 Analyse des hyperparamètres
+### Analyse des hyperparamètres
 
 Notebook :
 
@@ -174,7 +174,7 @@ Outils :
 
 ---
 
-## 9. Architectures disponibles
+## Architectures disponibles
 
 Définies dans `mypackage/models.py` :
 
@@ -187,7 +187,7 @@ Les hyperparamètres clé sont réglés via les fichiers YAML.
 
 ---
 
-## 10. Workflow complet recommandé
+## Workflow complet recommandé
 
 ```bash
 # 1. Entraînement d’un modèle
