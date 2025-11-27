@@ -2,3 +2,5 @@ Models/Subcellular Localization/mypackage/__pycache__
 Models/Subcellular Localization/Figures/*/*.png
 Models/Subcellular Localization/archive/
 Models/Subcellular Localization/models/
+
+Models/Aquatic Background Segmentation/*.pdf
