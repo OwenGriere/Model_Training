@@ -4,3 +4,5 @@ Models/Subcellular Localization/archive/
 Models/Subcellular Localization/models/
 
 Models/Aquatic Background Segmentation/*.pdf
+Models/Aquatic Background Segmentation/data/TEST
+Models/Aquatic Background Segmentation/data/train_val
